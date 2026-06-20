@@ -6,7 +6,7 @@
 
 <br /><br />
 
-<img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="Emblem of India" width="90" style="background-color:white; border-radius:8px; padding:10px;" />
+<img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="Emblem of India" width="90" style="filter: brightness(0) invert(1);" />
 
 <br />
 
@@ -503,16 +503,3 @@ trace/
 - Access logs are maintained for all upload and analysis operations.
 
 ---
-
-<div align="center">
-
-**Built with ❤️ by the Prakasham District Cyber Cell**
-
-*Empowering investigators with intelligence, not just data.*
-
----
-
-*© 2026 Prakasham District Police, Andhra Pradesh. All rights reserved.*
-*TRACE — Telecom Record Analysis for Criminal Examination*
-
-</div>
