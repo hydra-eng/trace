@@ -6,11 +6,11 @@
 
 <br /><br />
 
-<img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="Emblem of India" width="90" style="background:#fff; border-radius:50%; padding:8px;" />
+<img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="Emblem of India" width="90" style="background-color:white; border-radius:8px; padding:10px;" />
 
 <br />
 
-# 🕵️ TRACE
+# 🔎 TRACE
 ### **T**elecom **R**ecord **A**nalysis for **C**riminal **E**xamination
 
 **Prakasham District Police · Andhra Pradesh**
@@ -96,20 +96,11 @@
 
 ## 📸 Platform Gallery
 
-### 🔒 1. Secure Boot & Authentication
+### 🔒 1. Investigator Login Portal
 
-> The platform initializes with a secure bootloader sequence, verifying investigator credentials before establishing an encrypted session.
+> Secure credential-based login establishes an encrypted investigator session before access is granted to any case data.
 
-<table>
-<tr>
-<td><img src="docs/assets/boot_screen.png" alt="TRACE Secure Boot Screen" width="400"/></td>
-<td><img src="docs/assets/login_page.png" alt="TRACE Login Page" width="400"/></td>
-</tr>
-<tr>
-<td align="center"><em>⬅️ TRACE Bootloader Screen</em></td>
-<td align="center"><em>Investigator Login Portal ➡️</em></td>
-</tr>
-</table>
+![Login Page](docs/assets/login_page.png)
 
 ---
 
