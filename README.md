@@ -1,8 +1,4 @@
-<div align="center">
 
-<img src="docs/assets/emblem_gold.svg" alt="Emblem of India" width="80" />
-
-<br /><br />
 
 # TRACE
 
