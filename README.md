@@ -6,7 +6,7 @@
 
 <br /><br />
 
-<img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" alt="Emblem of India" width="90" style="filter: brightness(0) invert(1);" />
+<img src="docs/assets/emblem_gold.svg" alt="Emblem of India" width="90" />
 
 <br />
 
