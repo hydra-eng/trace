@@ -5,9 +5,11 @@
 
 *A criminal intelligence platform that turns raw telecom data (CDR/IPDR) into actionable investigative evidence.*
 
-<div align="center">
-  <h3>👉👉 <b>Aromax - Click this link to try it yourself: <a href="https://trace-prakasham.web.app">https://trace-prakasham.web.app</a></b> 👈👈</h3>
-</div>
+> [!IMPORTANT]
+> ### 🌐 Live Interactive Demo
+> 👉 **Aromax - Click this link to try it yourself: [https://trace-prakasham.web.app](https://trace-prakasham.web.app)** 👈
+>
+> ⚡ **Zero-Config Evaluation:** The hosted application runs in a fully interactive, local-first **Demo Mode** preloaded with realistic investigative seed data representing crime scenarios in Prakasham District, Andhra Pradesh. Try creating cases, exploring graphs, and clicking suspects without any setup!
 
 <br />
 
@@ -235,6 +237,21 @@ Each suspect receives a 0–100 risk score based on five behavioural signals:
 | **Docker Compose** | One-command deployment |
 | **Uvicorn** | ASGI server for FastAPI |
 | **Swagger UI** | Auto-generated API docs |
+---
+
+## Deployment & Demo Mode
+
+### Firebase Hosting
+The frontend is compiled for production and deployed to Firebase Hosting:
+* **Production URL:** [https://trace-prakasham.web.app](https://trace-prakasham.web.app)
+* **Configuration:** Configured as a Single Page Application (SPA) routing all paths to `/index.html` via `firebase.json` settings.
+
+### In-Browser Demo Mode Fallback
+To enable instant testing without requiring a running Python FastAPI backend on your machine, the application features an automatic serverless fallback:
+1. **Auto-Detection:** The API client probes `http://127.0.0.1:8000/health`. If it fails to connect, it gracefully flags the session to run in **offline/local mock mode**.
+2. **Snapshot Ingestion:** All cases, maps, phone relationships, IMEI changes, and call heatmaps are populated from a static SQLite snapshot stored in [mockData.ts](file:///c:/Users/Acer/Downloads/prakasam%20police/trace-frontend/src/lib/mockData.ts).
+3. **Simulated State:** You can create cases, upload records, and delete suspects in-memory. The application updates state dynamically in your browser session.
+4. **Mock PDF Reports:** Pressing the report download button generates a mock PDF preview entirely within the browser via a base64 document stream.
 
 ---
 
