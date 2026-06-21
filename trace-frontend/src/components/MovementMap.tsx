@@ -470,6 +470,7 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
             maxBounds={MAX_BOUNDS}
             minZoom={6.5}
             maxZoom={14}
+            {...viewState}
           >
             <NavigationControl position="bottom-left" showCompass={false} />
           </Map>
