@@ -1,496 +1,479 @@
-"""
-TRACE Demo Data Generator
-Generates realistic CDR and IPDR CSV files in both:
-1. Real-life Telecom Operator / TRAI format (for display/presentation)
-2. TRACE App Compatible format (for direct upload/ingestion)
-All coordinates are strictly within Prakasam District, Andhra Pradesh.
-
-Narrative: A robbery gang case — Ravi Kumar Reddy (primary suspect) coordinated
-with co-accused Suresh Babu Naidu. IMEI swap detected, burst call pattern,
-encrypted OTT usage, co-location at Chirala tower.
-
-Run: python generate_demo_data.py
-"""
-
+import os
 import csv
 import random
-import os
 from datetime import datetime, timedelta
 
 random.seed(42)
-OUT = os.path.dirname(os.path.abspath(__file__))
+OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ── Prakasam District Cell Towers ──────────────────────────────────────────────
-# Bounding box is strictly valid for AP/Telangana. All coordinates are Prakasam locations.
-TOWERS = [
-    {"id": "ONG-CENT-001", "name": "Ongole Central",    "lat": 15.5057, "lon": 80.0499, "lac": 4210},
-    {"id": "ONG-EAST-002", "name": "Ongole East",       "lat": 15.5120, "lon": 80.0620, "lac": 4211},
-    {"id": "ONG-WEST-003", "name": "Ongole West",       "lat": 15.5000, "lon": 80.0350, "lac": 4212},
-    {"id": "CHR-MAIN-004", "name": "Chirala Town",      "lat": 15.8167, "lon": 80.3500, "lac": 4220},
-    {"id": "CHR-EAST-005", "name": "Chirala East",      "lat": 15.8240, "lon": 80.3620, "lac": 4221},
-    {"id": "MKP-CENT-006", "name": "Markapur Central",  "lat": 15.7333, "lon": 79.2667, "lac": 4230},
-    {"id": "MKP-NH-007",   "name": "Markapur NH-67",    "lat": 15.7450, "lon": 79.2800, "lac": 4231},
-    {"id": "KDK-MAIN-008", "name": "Kandukur Town",     "lat": 15.2167, "lon": 79.9000, "lac": 4240},
-    {"id": "ADK-MAIN-009", "name": "Addanki Junction",  "lat": 15.7500, "lon": 79.9750, "lac": 4250},
-    {"id": "DRS-MAIN-010", "name": "Darsi Town",        "lat": 15.7667, "lon": 79.6833, "lac": 4260},
-    {"id": "PDL-CENT-011", "name": "Podili Centre",     "lat": 15.4667, "lon": 79.5833, "lac": 4270},
-    {"id": "GDL-MAIN-012", "name": "Giddalur Bypass",   "lat": 15.3667, "lon": 78.9333, "lac": 4280},
-    {"id": "SNR-MAIN-013", "name": "Singarayakonda",    "lat": 15.2333, "lon": 80.0167, "lac": 4290},
-    {"id": "VTM-MAIN-014", "name": "Vetapalem Cross",   "lat": 15.7833, "lon": 80.3167, "lac": 4300},
-]
-
-# ── Persons (Telugu Names & Realistic Mobile Numbers) ───────────────────────────
-SUSPECT_A = {
-    "msisdn": "+91-9441234567", "name": "Ravi Kumar Reddy",
-    "imei_old": "356812094523001", "imei_new": "490123456789012",
-    "imsi": "404100441234567",
-}
-SUSPECT_B = {
-    "msisdn": "+91-9963456789", "name": "Suresh Babu Naidu",
-    "imei": "352098765432100",
-    "imsi": "404100996345678",
-}
-SUSPECT_C = {
-    "msisdn": "+91-9849000312", "name": "Ramaiah Yadav",
-    "imei": "356001122334455",
-    "imsi": "404100984900031",
-}
-
-# Known contacts (not suspects, but relevant)
-HANDLER_NUMBER = "+91-9912000111"   # Unknown handler — appears in all 3 CDRs
-VICTIM_NUMBER  = "+91-8019876543"   # Victim / complaint party
-LAWYER_NUMBER  = "+91-9848111222"   # Legal contact of suspect A
-MISC_CONTACTS  = [
-    "+91-8341567890", "+91-9000112233", "+91-7330198765",
-    "+91-9849234567", "+91-8074561234", "+91-9032456789",
-    "+91-7032111234", "+91-9177234560",
-]
-
-BASE_DATE = datetime(2024, 1, 1, 6, 0, 0)
-
-def rand_time(base: datetime, hour_min=6, hour_max=22) -> datetime:
-    offset_days = random.randint(0, 0)
-    hour = random.randint(hour_min, hour_max)
-    minute = random.randint(0, 59)
-    second = random.randint(0, 59)
-    return base.replace(hour=hour, minute=minute, second=second) + timedelta(days=offset_days)
-
-def fmt(dt: datetime) -> tuple:
-    return dt.strftime("%d/%m/%Y"), dt.strftime("%H:%M:%S")
-
-def call_type():
-    return random.choice(["MOC", "MTC", "MOC", "MOC", "SMS-MO", "MOC"])
-
-def duration():
-    return random.randint(10, 480)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Headers Definitions
-# ══════════════════════════════════════════════════════════════════════════════
-CDR_HEADERS = [
-    "Sl_No", "A_Party_MSISDN", "B_Party_MSISDN", "Date", "Time",
-    "Duration_Sec", "Call_Type", "IMEI", "IMSI",
-    "Cell_ID", "LAC", "Tower_Name", "Tower_Latitude", "Tower_Longitude",
-    "Telecom_Circle", "Operator", "Roaming_Flag", "Remarks"
-]
-
-IPDR_HEADERS = [
-    "Sl_No", "MSISDN", "IMSI", "Allocated_IP", "Start_Date", "Start_Time",
-    "End_Date", "End_Time", "Duration_Sec", "Upload_KB", "Download_KB",
-    "Dest_IP", "Dest_Port", "Protocol", "App_Label",
-    "Cell_ID", "Tower_Latitude", "Tower_Longitude", "Telecom_Circle", "Operator"
-]
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Writers for Operator (TRAI) & TRACE-Compatible Layouts
-# ══════════════════════════════════════════════════════════════════════════════
-def write_cdr_dataset(filename_prefix: str, rows: list):
-    # 1. Operator (TRAI) Format
-    op_filename = f"Prakasam_District_Operator_{filename_prefix}.csv"
-    op_path = os.path.join(OUT, op_filename)
-    with open(op_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(CDR_HEADERS)
-        w.writerows(rows)
-    print(f"  Written Operator Format: {op_filename} ({len(rows)} records)")
-
-    # 2. TRACE Compatible Format
-    # Headers: msisdn_a, msisdn_b, imei, tower_id, tower_lat, tower_lon, call_type, duration_sec, timestamp
-    comp_filename = f"COMPATIBLE_Prakasam_District_{filename_prefix}.csv"
-    comp_path = os.path.join(OUT, comp_filename)
-    comp_rows = []
-    for r in rows:
-        dt_str = f"{r[3]} {r[4]}"
-        try:
-            dt = datetime.strptime(dt_str, "%d/%m/%Y %H:%M:%S")
-            ts_str = dt.strftime("%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            ts_str = dt_str
-        
-        comp_rows.append([
-            r[1], # msisdn_a
-            r[2], # msisdn_b
-            r[7], # imei
-            r[9], # tower_id (cell_id)
-            r[12], # tower_lat
-            r[13], # tower_lon
-            r[6], # call_type
-            r[5], # duration_sec
-            ts_str # timestamp
-        ])
+# Strict AP/Telangana Coordinate boundaries (12.6 to 19.9 Lat, 76.7 to 84.8 Lon)
+TOWERS = {
+    # Prakasham District Towers
+    "TWR-ONG-001": {"name": "Ongole Central",       "lat": 15.5057, "lon": 80.0499, "district": "Prakasham"},
+    "TWR-ONG-002": {"name": "Ongole Bus Stand",     "lat": 15.5100, "lon": 80.0450, "district": "Prakasham"},
+    "TWR-CDD-001": {"name": "Chirala Prakasham",    "lat": 15.8167, "lon": 80.3500, "district": "Prakasham"},
+    "TWR-MRT-001": {"name": "Markapur Prakasham",   "lat": 15.7333, "lon": 79.2667, "district": "Prakasham"},
+    "TWR-KAN-001": {"name": "Kandukur Prakasham",   "lat": 15.2167, "lon": 79.9000, "district": "Prakasham"},
+    "TWR-ADK-001": {"name": "Addanki Prakasham",    "lat": 15.7500, "lon": 79.9750, "district": "Prakasham"},
+    "TWR-PDL-001": {"name": "Podili Prakasham",     "lat": 15.4667, "lon": 79.5833, "district": "Prakasham"},
+    "TWR-DRS-001": {"name": "Darsi Prakasham",      "lat": 15.7667, "lon": 79.6833, "district": "Prakasham"},
     
-    with open(comp_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["msisdn_a", "msisdn_b", "imei", "tower_id", "tower_lat", "tower_lon", "call_type", "duration_sec", "timestamp"])
-        w.writerows(comp_rows)
-    print(f"  Written Compatible Format: {comp_filename} ({len(comp_rows)} records)")
+    # Regional Towers (AP/Telangana)
+    "TWR-HYD-001": {"name": "Hyderabad Secunderabad","lat": 17.4399, "lon": 78.4983, "district": "Hyderabad"},
+    "TWR-HYD-002": {"name": "LB Nagar Hyderabad",   "lat": 17.3453, "lon": 78.5479, "district": "Hyderabad"},
+    "TWR-GNT-001": {"name": "Guntur Junction",      "lat": 16.3067, "lon": 80.4365, "district": "Guntur"},
+    "TWR-VJA-001": {"name": "Vijayawada Central",   "lat": 16.5062, "lon": 80.6480, "district": "Krishna"},
+    "TWR-NLR-001": {"name": "Nellore Town",         "lat": 14.4426, "lon": 79.9865, "district": "Nellore"},
+    "TWR-KNL-001": {"name": "Kurnool City",         "lat": 15.8281, "lon": 78.0373, "district": "Kurnool"},
+    "TWR-VZG-001": {"name": "Visakhapatnam Harbor",  "lat": 17.6800, "lon": 83.2100, "district": "Visakhapatnam"},
+    "TWR-KKD-001": {"name": "Kakinada Port",        "lat": 16.9800, "lon": 82.2600, "district": "East Godavari"},
+    "TWR-RJY-001": {"name": "Rajahmundry Bypass",   "lat": 17.0000, "lon": 81.8000, "district": "East Godavari"},
+}
 
-def write_ipdr_dataset(filename_prefix: str, rows: list):
-    # 1. Operator (TRAI) Format
-    op_filename = f"Prakasam_District_Operator_{filename_prefix}.csv"
-    op_path = os.path.join(OUT, op_filename)
-    with open(op_path, "w", newline="", encoding="utf-8") as f:
+START_DATE = datetime(2026, 6, 1, 0, 0, 0)
+
+# Helper function to generate timestamps
+def rand_ts(day: int, hour_min: int = 0, hour_max: int = 23) -> datetime:
+    base = START_DATE + timedelta(days=day - 1)
+    h = random.randint(hour_min, hour_max)
+    m = random.randint(0, 59)
+    s = random.randint(0, 59)
+    return base.replace(hour=h, minute=m, second=s)
+
+def fmt_ts(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+def write_csv(path: str, header: list, rows: list):
+    with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(IPDR_HEADERS)
+        w.writerow(header)
         w.writerows(rows)
-    print(f"  Written Operator Format: {op_filename} ({len(rows)} records)")
+    print(f"  Generated {len(rows):>4} rows -> {os.path.basename(path)}")
 
-    # 2. TRACE Compatible Format
-    # Headers: msisdn, dest_ip, dest_port, data_volume_kb, timestamp
-    comp_filename = f"COMPATIBLE_Prakasam_District_{filename_prefix}.csv"
-    comp_path = os.path.join(OUT, comp_filename)
-    comp_rows = []
-    for r in rows:
-        dt_str = f"{r[4]} {r[5]}"
-        try:
-            dt = datetime.strptime(dt_str, "%d/%m/%Y %H:%M:%S")
-            ts_str = dt.strftime("%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            ts_str = dt_str
-        
-        volume = float(r[9]) + float(r[10]) # Upload + Download
-        
-        comp_rows.append([
-            r[1], # msisdn
-            r[11], # dest_ip
-            r[12], # dest_port
-            round(volume, 2), # data_volume_kb
-            ts_str # timestamp
-        ])
+# ══════════════════════════════════════════════════════════════════════════════
+# CASE 1: Ongole Tobacco Smuggling Syndicate (Prakasham District)
+# ══════════════════════════════════════════════════════════════════════════════
+def gen_case_1():
+    print("Generating Case 1...")
+    case_prefix = "Case1_Ongole_Tobacco_Smuggling"
     
-    with open(comp_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["msisdn", "dest_ip", "dest_port", "data_volume_kb", "timestamp"])
-        w.writerows(comp_rows)
-    print(f"  Written Compatible Format: {comp_filename} ({len(comp_rows)} records)")
+    # Suspects & contacts
+    msisdn_a = "919440123456"  # Kalyan Chakravarthy
+    msisdn_b = "919963987654"  # Venkatesh Prasad
+    msisdn_c = "919849000312"  # Subba Rao
+    msisdn_d = "919000100004"  # Ananthakrishna
+    msisdn_e = "919848011223"  # Anjali Devi (Clean Control)
+    handler = "919888000111"   # Venkata Ramana
+    
+    contacts_pool = ["919177234560", "919032456789", "919849234567", "918074561234",
+                     "918341567890", "919000112233", "917330198765", "919848111222"]
+    
+    # ── Suspect A: Kalyan Chakravarthy (Anomalous Kingpin) ──
+    # Bursts on Day 1-2, IMEI swap on Day 3, goes silent on Day 4. Night ratio > 70%
+    cdr_a = []
+    # Day 1: Burst calls (Ongole Central)
+    twr_a = TOWERS["TWR-ONG-001"]
+    imei_old = "359876123400001"
+    imei_new = "490876123499999"
+    
+    # Day 1: 22 calls
+    for _ in range(22):
+        ts = rand_ts(1, 21, 23) if random.random() < 0.75 else rand_ts(1, 6, 20)
+        dest = random.choice([msisdn_b, msisdn_c, msisdn_d, handler] + contacts_pool)
+        cdr_a.append([msisdn_a, dest, imei_old, "TWR-ONG-001", twr_a["lat"], twr_a["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+    
+    # Day 2: 24 calls, and co-location event at Chirala
+    twr_cdd = TOWERS["TWR-CDD-001"]
+    # Co-location call at 15:05
+    coloc_ts = START_DATE + timedelta(days=1, hours=15, minutes=5)
+    cdr_a.append([msisdn_a, msisdn_b, imei_old, "TWR-CDD-001", twr_cdd["lat"], twr_cdd["lon"], "CALL", 180, fmt_ts(coloc_ts)])
+    for _ in range(23):
+        ts = rand_ts(2, 23, 23) if random.random() < 0.75 else rand_ts(2, 6, 20)
+        dest = random.choice([msisdn_b, msisdn_c, handler] + contacts_pool)
+        # Randomly choose Ongole or Chirala tower
+        twr = random.choice([TOWERS["TWR-ONG-001"], TOWERS["TWR-ONG-002"]])
+        cdr_a.append([msisdn_a, dest, imei_old, "TWR-ONG-001", twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+        
+    # Day 3: IMEI Swap at 02:30. 10 calls.
+    swap_ts = START_DATE + timedelta(days=2, hours=2, minutes=30)
+    cdr_a.append([msisdn_a, handler, imei_new, "TWR-ONG-001", twr_a["lat"], twr_a["lon"], "CALL", 60, fmt_ts(swap_ts)]) # new IMEI call
+    for i in range(9):
+        ts = rand_ts(3, 3, 23)
+        imei = imei_old if ts < swap_ts else imei_new
+        dest = random.choice([msisdn_b, handler] + contacts_pool)
+        cdr_a.append([msisdn_a, dest, imei, "TWR-ONG-001", twr_a["lat"], twr_a["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+        
+    # Day 4: Go silent (0 calls, which satisfies silence_after_burst < peak_count * 0.5)
+    
+    # Days 5-30: sparse calling, night-focused
+    for day in range(5, 31):
+        if random.random() < 0.3:  # call on some days
+            for _ in range(random.randint(1, 3)):
+                ts = rand_ts(day, 23, 23) if random.random() < 0.8 else rand_ts(day, 8, 17)
+                dest = random.choice([msisdn_b, handler] + contacts_pool)
+                twr = random.choice([TOWERS["TWR-ONG-001"], TOWERS["TWR-ONG-002"], TOWERS["TWR-MRT-001"]])
+                cdr_a.append([msisdn_a, dest, imei_new, twr["name"], twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
 
-def make_cdr_row(sl, a_msisdn, b_msisdn, dt, dur, ctype, imei, imsi, tower, remarks=""):
-    d, t = fmt(dt)
-    return [
-        sl, a_msisdn, b_msisdn, d, t, dur, ctype,
-        imei, imsi,
-        tower["id"], tower["lac"], tower["name"],
-        f"{tower['lat']:.4f}", f"{tower['lon']:.4f}",
-        "Andhra Pradesh", "BSNL" if "441" in a_msisdn else "Airtel",
-        "N", remarks
-    ]
+    cdr_a.sort(key=lambda x: x[8])
+    
+    # ── Suspect B: Venkatesh Prasad (Co-conspirator) ──
+    cdr_b = []
+    imei_b = "352098765432100"
+    # Calls handler, Kalyan, Subba Rao
+    for day in range(1, 31):
+        # Day 2: Co-location call at Chirala at 15:00
+        if day == 2:
+            coloc_ts_b = START_DATE + timedelta(days=1, hours=15, minutes=0)
+            cdr_b.append([msisdn_b, msisdn_a, imei_b, "TWR-CDD-001", twr_cdd["lat"], twr_cdd["lon"], "CALL", 120, fmt_ts(coloc_ts_b)])
+        
+        n_calls = random.randint(2, 6)
+        for _ in range(n_calls):
+            ts = rand_ts(day, 8, 22)
+            dest = random.choice([msisdn_a, msisdn_c, handler] + contacts_pool)
+            twr = TOWERS["TWR-CDD-001"] if day < 10 else TOWERS["TWR-ONG-002"]
+            cdr_b.append([msisdn_b, dest, imei_b, "TWR-CDD-001", twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+            
+    cdr_b.sort(key=lambda x: x[8])
+    
+    # ── Suspect C: Subba Rao (Co-conspirator) ──
+    cdr_c = []
+    imei_c = "356001122334455"
+    for day in range(1, 31):
+        if day == 2:
+            coloc_ts_c = START_DATE + timedelta(days=1, hours=15, minutes=15)
+            cdr_c.append([msisdn_c, msisdn_a, imei_c, "TWR-CDD-001", twr_cdd["lat"], twr_cdd["lon"], "CALL", 150, fmt_ts(coloc_ts_c)])
+            
+        n_calls = random.randint(1, 4)
+        for _ in range(n_calls):
+            ts = rand_ts(day, 9, 20)
+            dest = random.choice([msisdn_a, msisdn_b, handler] + contacts_pool)
+            twr = TOWERS["TWR-KAN-001"]
+            cdr_c.append([msisdn_c, dest, imei_c, "TWR-KAN-001", twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+            
+    cdr_c.sort(key=lambda x: x[8])
+
+    # ── Suspect D: Ananthakrishna (Buyer/Associate) ──
+    cdr_d = []
+    imei_d = "351234567890004"
+    for day in range(1, 31):
+        n_calls = random.randint(1, 3)
+        for _ in range(n_calls):
+            ts = rand_ts(day, 10, 18)
+            dest = random.choice([msisdn_b, msisdn_c])
+            twr = TOWERS["TWR-NLR-001"]
+            cdr_d.append([msisdn_d, dest, imei_d, "TWR-NLR-001", twr["lat"], twr["lon"], "CALL", random.randint(30, 200), fmt_ts(ts)])
+            
+    cdr_d.sort(key=lambda x: x[8])
+
+    # ── Suspect E: Anjali Devi (Clean Control) ──
+    cdr_e = []
+    imei_e = "351234567890005"
+    family_contacts = ["919177001001", "919177001002", "919177001003"]
+    for day in range(1, 31):
+        n_calls = random.randint(2, 4)
+        for _ in range(n_calls):
+            ts = rand_ts(day, 8, 20)
+            dest = random.choice(family_contacts)
+            twr = TOWERS["TWR-ONG-001"]
+            cdr_e.append([msisdn_e, dest, imei_e, "TWR-ONG-001", twr["lat"], twr["lon"], "CALL", random.randint(60, 400), fmt_ts(ts)])
+            
+    cdr_e.sort(key=lambda x: x[8])
+
+    # ── IPDR Suspect A (WhatsApp & Telegram OTT) ──
+    # Columns: msisdn, dest_ip, dest_port, data_volume_kb, timestamp
+    ipdr_a = []
+    for day in range(1, 31):
+        for _ in range(random.randint(4, 10)):
+            ts = rand_ts(day, 0, 23)
+            # WhatsApp
+            ipdr_a.append([msisdn_a, "157.240.198.35", 443, round(random.uniform(50.0, 5000.0), 2), fmt_ts(ts)])
+        for _ in range(random.randint(2, 6)):
+            ts = rand_ts(day, 0, 23)
+            # Telegram
+            ipdr_a.append([msisdn_a, "149.154.167.91", 443, round(random.uniform(30.0, 2000.0), 2), fmt_ts(ts)])
+    ipdr_a.sort(key=lambda x: x[4])
+
+    # ── IPDR Suspect B (Standard traffic) ──
+    ipdr_b = []
+    for day in range(1, 31):
+        for _ in range(random.randint(2, 5)):
+            ts = rand_ts(day, 8, 22)
+            # Standard Google/browsing IPs
+            ipdr_b.append([msisdn_b, "142.250.76.46", 443, round(random.uniform(10.0, 1000.0), 2), fmt_ts(ts)])
+    ipdr_b.sort(key=lambda x: x[4])
+
+    # Headers definition
+    cdr_header = ["msisdn_a", "msisdn_b", "imei", "tower_id", "tower_lat", "tower_lon", "call_type", "duration_sec", "timestamp"]
+    ipdr_header = ["msisdn", "dest_ip", "dest_port", "data_volume_kb", "timestamp"]
+
+    # Write CSVs
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Kalyan_Chakravarthy.csv"), cdr_header, cdr_a)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_IPDR_Kalyan_Chakravarthy.csv"), ipdr_header, ipdr_a)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Venkatesh_Prasad.csv"), cdr_header, cdr_b)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_IPDR_Venkatesh_Prasad.csv"), ipdr_header, ipdr_b)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Subba_Rao.csv"), cdr_header, cdr_c)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Ananthakrishna.csv"), cdr_header, cdr_d)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Anjali_Devi.csv"), cdr_header, cdr_e)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DATA GENERATION
+# CASE 2: Hyderabad–Guntur Cyber Fraud Network (Telangana/AP)
 # ══════════════════════════════════════════════════════════════════════════════
+def gen_case_2():
+    print("Generating Case 2...")
+    case_prefix = "Case2_Hyd_Gnt_Cyber_Fraud"
+    
+    # Suspects & contacts
+    msisdn_a = "919000888111"  # Ranga Reddy
+    msisdn_b = "919177555666"  # Srinivas Rao
+    msisdn_c = "919849111222"  # Venkateswara Rao
+    msisdn_d = "919955778899"  # Lalitha Prasad (Clean Control)
+    handler = "919701000222"   # Bhaskara Rao
+    
+    contacts_pool = ["919030011223", "919160022334", "919441122334", "919912233445",
+                     "918800112233", "917700223344", "919900334455", "919500445566"]
 
-# ──────────────────────────────────────────────────────────────────────────────
-# CDR — SUSPECT A (Ravi Kumar Reddy)
-# ──────────────────────────────────────────────────────────────────────────────
-rows_a = []
-sl = 1
+    # ── Suspect A: Ranga Reddy ──
+    cdr_a = []
+    imei_old = "351111222233334"
+    imei_new = "354444555566667"
+    
+    # Day 1-3: Bursts on HyderabadSecunderabad
+    twr_hyd = TOWERS["TWR-HYD-001"]
+    
+    for day in range(1, 4):
+        n_calls = 25 if day <= 2 else 15
+        for _ in range(n_calls):
+            ts = rand_ts(day, 23, 23) if random.random() < 0.7 else rand_ts(day, 8, 17)
+            dest = random.choice([msisdn_b, msisdn_c, handler] + contacts_pool)
+            cdr_a.append([msisdn_a, dest, imei_old, "TWR-HYD-001", twr_hyd["lat"], twr_hyd["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
 
-# Jan 1 — Normal day in Ongole
-ong = next(t for t in TOWERS if t["id"] == "ONG-CENT-001")
-for day in range(2):  # Jan 1–2
-    base = BASE_DATE + timedelta(days=day)
+    # Day 3 Co-location at Hyd Secunderabad at 11:05
+    coloc_ts = START_DATE + timedelta(days=2, hours=11, minutes=5)
+    cdr_a.append([msisdn_a, msisdn_b, imei_old, "TWR-HYD-001", twr_hyd["lat"], twr_hyd["lon"], "CALL", 180, fmt_ts(coloc_ts)])
+
+    # Day 4: Silent (0 calls)
+    
+    # Day 5: IMEI swap at 04:15.
+    swap_ts = START_DATE + timedelta(days=4, hours=4, minutes=15)
+    cdr_a.append([msisdn_a, handler, imei_new, "TWR-HYD-002", TOWERS["TWR-HYD-002"]["lat"], TOWERS["TWR-HYD-002"]["lon"], "CALL", 90, fmt_ts(swap_ts)])
     for _ in range(8):
-        b = random.choice(MISC_CONTACTS + [HANDLER_NUMBER])
-        dt = rand_time(base, 9, 20)
-        rows_a.append(make_cdr_row(sl, SUSPECT_A["msisdn"], b, dt, duration(), "MOC", SUSPECT_A["imei_old"], SUSPECT_A["imsi"], ong))
-        sl += 1
+        ts = rand_ts(5, 5, 23)
+        imei = imei_old if ts < swap_ts else imei_new
+        dest = random.choice([msisdn_b, handler] + contacts_pool)
+        twr = TOWERS["TWR-HYD-002"]
+        cdr_a.append([msisdn_a, dest, imei, "TWR-HYD-002", twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
 
-# Jan 3 — IMEI swap day (morning old IMEI, evening new IMEI)
-base3 = BASE_DATE + timedelta(days=2)
-for hr in [9, 10, 11]:
-    dt = base3.replace(hour=hr, minute=random.randint(0,59))
-    rows_a.append(make_cdr_row(sl, SUSPECT_A["msisdn"], HANDLER_NUMBER, dt, duration(), "MOC", SUSPECT_A["imei_old"], SUSPECT_A["imsi"], ong, "Pre-swap activity"))
-    sl += 1
+    # Days 6-30: sparse AP/Telangana movements
+    for day in range(6, 31):
+        if random.random() < 0.3:
+            for _ in range(random.randint(1, 3)):
+                ts = rand_ts(day, 23, 23) if random.random() < 0.75 else rand_ts(day, 9, 18)
+                dest = random.choice([msisdn_b, handler] + contacts_pool)
+                # Travels from Hyderabad -> Guntur -> Vijayawada
+                twr_key = random.choice(["TWR-HYD-002", "TWR-GNT-001", "TWR-VJA-001"])
+                twr = TOWERS[twr_key]
+                cdr_a.append([msisdn_a, dest, imei_new, twr_key, twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+                
+    cdr_a.sort(key=lambda x: x[8])
 
-# IMEI swap timestamp
-swap_dt = base3.replace(hour=18, minute=13, second=43)
-for hr in [18, 19, 21, 23]:
-    dt = base3.replace(hour=hr, minute=random.randint(5,55))
-    b = random.choice([SUSPECT_B["msisdn"], HANDLER_NUMBER, MISC_CONTACTS[0]])
-    rows_a.append(make_cdr_row(sl, SUSPECT_A["msisdn"], b, dt, duration(), "MOC", SUSPECT_A["imei_new"], SUSPECT_A["imsi"], ong, "Post-IMEI-swap"))
-    sl += 1
+    # ── Suspect B: Srinivas Rao ──
+    cdr_b = []
+    imei_b = "352222333344445"
+    for day in range(1, 31):
+        if day == 3:
+            coloc_ts_b = START_DATE + timedelta(days=2, hours=11, minutes=0)
+            cdr_b.append([msisdn_b, msisdn_a, imei_b, "TWR-HYD-001", twr_hyd["lat"], twr_hyd["lon"], "CALL", 120, fmt_ts(coloc_ts_b)])
+        
+        n_calls = random.randint(2, 5)
+        for _ in range(n_calls):
+            ts = rand_ts(day, 8, 21)
+            dest = random.choice([msisdn_a, msisdn_c, handler] + contacts_pool)
+            twr = TOWERS["TWR-GNT-001"]
+            cdr_b.append([msisdn_b, dest, imei_b, "TWR-GNT-001", twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+    cdr_b.sort(key=lambda x: x[8])
 
-# Jan 4 — BURST: 30+ calls (panic mode — pre-crime coordination)
-base4 = BASE_DATE + timedelta(days=3)
-burst_tower = next(t for t in TOWERS if t["id"] == "ONG-EAST-002")
-for i in range(32):
-    hr = random.randint(6, 23)
-    dt = base4.replace(hour=hr, minute=random.randint(0,59))
-    b = random.choice([SUSPECT_B["msisdn"], HANDLER_NUMBER, SUSPECT_C["msisdn"]] + MISC_CONTACTS[:3])
-    ctype = "MOC" if i % 7 != 0 else "SMS-MO"
-    rows_a.append(make_cdr_row(sl, SUSPECT_A["msisdn"], b, dt, duration() if ctype=="MOC" else 0, ctype, SUSPECT_A["imei_new"], SUSPECT_A["imsi"], burst_tower, "BURST_PERIOD"))
-    sl += 1
+    # ── Suspect C: Venkateswara Rao ──
+    cdr_c = []
+    imei_c = "353333444455556"
+    for day in range(1, 31):
+        if day == 3:
+            coloc_ts_c = START_DATE + timedelta(days=2, hours=11, minutes=15)
+            cdr_c.append([msisdn_c, msisdn_a, imei_c, "TWR-HYD-001", twr_hyd["lat"], twr_hyd["lon"], "CALL", 150, fmt_ts(coloc_ts_c)])
+            
+        n_calls = random.randint(1, 3)
+        for _ in range(n_calls):
+            ts = rand_ts(day, 9, 20)
+            dest = random.choice([msisdn_a, msisdn_b, handler] + contacts_pool)
+            twr = TOWERS["TWR-VJA-001"]
+            cdr_c.append([msisdn_c, dest, imei_c, "TWR-VJA-001", twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+    cdr_c.sort(key=lambda x: x[8])
 
-# Jan 5 — COMPLETE SILENCE (no records — intentional)
+    # ── Suspect D: Lalitha Prasad (Clean Control) ──
+    cdr_d = []
+    imei_d = "355555666677778"
+    family_contacts = ["919988112233", "919988445566"]
+    for day in range(1, 31):
+        n_calls = random.randint(2, 3)
+        for _ in range(n_calls):
+            ts = rand_ts(day, 9, 19)
+            dest = random.choice(family_contacts)
+            twr = TOWERS["TWR-HYD-002"]
+            cdr_d.append([msisdn_d, dest, imei_d, "TWR-HYD-002", twr["lat"], twr["lon"], "CALL", random.randint(40, 350), fmt_ts(ts)])
+    cdr_d.sort(key=lambda x: x[8])
 
-# Jan 6 — Movement to Markapur (distant location, ~120 km from Ongole)
-base6 = BASE_DATE + timedelta(days=5)
-mkp = next(t for t in TOWERS if t["id"] == "MKP-CENT-006")
-for i in range(6):
-    hr = random.randint(10, 20)
-    dt = base6.replace(hour=hr, minute=random.randint(0,59))
-    rows_a.append(make_cdr_row(sl, SUSPECT_A["msisdn"], HANDLER_NUMBER, dt, duration(), "MOC", SUSPECT_A["imei_new"], SUSPECT_A["imsi"], mkp, "AT_CRIME_SCENE_AREA"))
-    sl += 1
+    # ── IPDR Suspect A (WhatsApp/Telegram) ──
+    ipdr_a = []
+    for day in range(1, 31):
+        for _ in range(random.randint(3, 8)):
+            ts = rand_ts(day, 0, 23)
+            ipdr_a.append([msisdn_a, "157.240.198.35", 443, round(random.uniform(50.0, 4000.0), 2), fmt_ts(ts)])
+        for _ in range(random.randint(1, 5)):
+            ts = rand_ts(day, 0, 23)
+            ipdr_a.append([msisdn_a, "149.154.167.91", 443, round(random.uniform(30.0, 1500.0), 2), fmt_ts(ts)])
+    ipdr_a.sort(key=lambda x: x[4])
 
-# Jan 7 — CO-LOCATION with Suspect B at Chirala (both at CHR-MAIN-004 14:55–15:30)
-base7 = BASE_DATE + timedelta(days=6)
-chr_tower = next(t for t in TOWERS if t["id"] == "CHR-MAIN-004")
-coloc_hours = [14, 15]  # 14:55–15:30 window
-for i, hr in enumerate(coloc_hours * 2):
-    dt = base7.replace(hour=hr, minute=random.choice([55,10,20,30]))
-    b = SUSPECT_B["msisdn"] if i % 2 == 0 else MISC_CONTACTS[1]
-    rows_a.append(make_cdr_row(sl, SUSPECT_A["msisdn"], b, dt, duration(), "MOC", SUSPECT_A["imei_new"], SUSPECT_A["imsi"], chr_tower, "CO-LOCATION_WITH_SUSPECT_B"))
-    sl += 1
+    # ── IPDR Suspect B ──
+    ipdr_b = []
+    for day in range(1, 31):
+        for _ in range(random.randint(2, 4)):
+            ts = rand_ts(day, 9, 21)
+            ipdr_b.append([msisdn_b, "142.250.76.46", 443, round(random.uniform(10.0, 800.0), 2), fmt_ts(ts)])
+    ipdr_b.sort(key=lambda x: x[4])
 
-# Jan 8–10 — Night calls (evasion pattern)
-for day_off in range(3):
-    base_n = BASE_DATE + timedelta(days=7+day_off)
-    for _ in range(5):
-        hr = random.randint(23, 23) if random.random() > 0.5 else random.randint(0, 4)
-        dt = base_n.replace(hour=hr, minute=random.randint(0,59))
-        if hr >= 23:
-            dt = base_n.replace(hour=23, minute=random.randint(30,59))
-        else:
-            dt = (base_n + timedelta(days=1)).replace(hour=random.randint(1,4), minute=random.randint(0,59))
-        rows_a.append(make_cdr_row(sl, SUSPECT_A["msisdn"], HANDLER_NUMBER, dt, duration(), "MOC", SUSPECT_A["imei_new"], SUSPECT_A["imsi"], ong, "NIGHT_CALL"))
-        sl += 1
+    cdr_header = ["msisdn_a", "msisdn_b", "imei", "tower_id", "tower_lat", "tower_lon", "call_type", "duration_sec", "timestamp"]
+    ipdr_header = ["msisdn", "dest_ip", "dest_port", "data_volume_kb", "timestamp"]
 
-# Jan 11–15 — Return to normal, some contact with lawyer
-base11 = BASE_DATE + timedelta(days=10)
-for day_off in range(5):
-    base_n = base11 + timedelta(days=day_off)
-    for _ in range(4):
-        b = random.choice(MISC_CONTACTS + [LAWYER_NUMBER])
-        dt = rand_time(base_n, 9, 18)
-        rows_a.append(make_cdr_row(sl, SUSPECT_A["msisdn"], b, dt, duration(), call_type(), SUSPECT_A["imei_new"], SUSPECT_A["imsi"], ong, ""))
-        sl += 1
-
-rows_a.sort(key=lambda r: datetime.strptime(f"{r[3]} {r[4]}", "%d/%m/%Y %H:%M:%S"))
-for i, r in enumerate(rows_a): r[0] = i + 1
+    # Write CSVs
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Ranga_Reddy.csv"), cdr_header, cdr_a)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_IPDR_Ranga_Reddy.csv"), ipdr_header, ipdr_a)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Srinivas_Rao.csv"), cdr_header, cdr_b)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_IPDR_Srinivas_Rao.csv"), ipdr_header, ipdr_b)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Venkateswara_Rao.csv"), cdr_header, cdr_c)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Lalitha_Prasad.csv"), cdr_header, cdr_d)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# CDR — SUSPECT B (Suresh Babu Naidu)
-# ──────────────────────────────────────────────────────────────────────────────
-rows_b = []
-sl = 1
-chirala_tower = next(t for t in TOWERS if t["id"] == "CHR-MAIN-004")
-chirala_east  = next(t for t in TOWERS if t["id"] == "CHR-EAST-005")
+# ══════════════════════════════════════════════════════════════════════════════
+# CASE 3: Visakhapatnam Port Contraband Ring (Telangana/AP)
+# ══════════════════════════════════════════════════════════════════════════════
+def gen_case_3():
+    print("Generating Case 3...")
+    case_prefix = "Case3_Vizag_Contraband_Cartel"
+    
+    # Suspects & contacts
+    msisdn_a = "919849222333"  # Tirupati Naidu
+    msisdn_b = "919490111222"  # Madhav Prasad
+    msisdn_c = "919160222333"  # Satyanarayana (Clean Control)
+    handler = "919611000333"   # Prabhakar Reddy
+    
+    contacts_pool = ["919010112233", "919440332211", "919866224466", "919959335577",
+                     "918121446688", "919703557799", "919177668800", "919052779900"]
 
-# Jan 1–3: activity in Chirala area
-for day in range(3):
-    base = BASE_DATE + timedelta(days=day)
+    # ── Suspect A: Tirupati Naidu ──
+    cdr_a = []
+    imei_old = "358888888888888"
+    imei_new = "359999999999999"
+    
+    # Day 1-2: Bursts in Vizag Harbor
+    twr_vzg = TOWERS["TWR-VZG-001"]
+    
+    for day in range(1, 3):
+        n_calls = 28
+        for _ in range(n_calls):
+            ts = rand_ts(day, 23, 23) if random.random() < 0.72 else rand_ts(day, 8, 17)
+            dest = random.choice([msisdn_b, handler] + contacts_pool)
+            cdr_a.append([msisdn_a, dest, imei_old, "TWR-VZG-001", twr_vzg["lat"], twr_vzg["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+
+    # Day 3: Silent (0 calls)
+    
+    # Day 4: IMEI Swap at 18:30 during travel, co-location with Madhav at Vijayawada Central
+    twr_vja = TOWERS["TWR-VJA-001"]
+    coloc_ts = START_DATE + timedelta(days=3, hours=18, minutes=35)
+    cdr_a.append([msisdn_a, msisdn_b, imei_new, "TWR-VJA-001", twr_vja["lat"], twr_vja["lon"], "CALL", 180, fmt_ts(coloc_ts)])
+    
+    swap_ts = START_DATE + timedelta(days=3, hours=18, minutes=30)
     for _ in range(7):
-        b = random.choice(MISC_CONTACTS[3:] + [HANDLER_NUMBER])
-        dt = rand_time(base, 8, 21)
-        rows_b.append(make_cdr_row(sl, SUSPECT_B["msisdn"], b, dt, duration(), call_type(), SUSPECT_B["imei"], SUSPECT_B["imsi"], chirala_tower))
-        sl += 1
+        ts = rand_ts(4, 9, 22)
+        imei = imei_old if ts < swap_ts else imei_new
+        dest = random.choice([msisdn_b, handler] + contacts_pool)
+        twr = random.choice([TOWERS["TWR-VZG-001"], TOWERS["TWR-VJA-001"]])
+        cdr_a.append([msisdn_a, dest, imei, twr["name"], twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
 
-# Jan 4 — Burst calls from Chirala coordinating with Suspect A
-base4b = BASE_DATE + timedelta(days=3)
-for i in range(20):
-    hr = random.randint(7, 22)
-    dt = base4b.replace(hour=hr, minute=random.randint(0,59))
-    b = SUSPECT_A["msisdn"] if i % 3 == 0 else random.choice([HANDLER_NUMBER] + MISC_CONTACTS[2:5])
-    rows_b.append(make_cdr_row(sl, SUSPECT_B["msisdn"], b, dt, duration(), "MOC", SUSPECT_B["imei"], SUSPECT_B["imsi"], chirala_tower, "BURST_COORD"))
-    sl += 1
+    # Days 5-30: sparse AP/Telangana movements
+    for day in range(5, 31):
+        if random.random() < 0.25:
+            for _ in range(random.randint(1, 3)):
+                ts = rand_ts(day, 23, 23) if random.random() < 0.8 else rand_ts(day, 10, 16)
+                dest = random.choice([msisdn_b, handler] + contacts_pool)
+                # Vizag, Kakinada, Rajahmundry
+                twr_key = random.choice(["TWR-VZG-001", "TWR-KKD-001", "TWR-RJY-001"])
+                twr = TOWERS[twr_key]
+                cdr_a.append([msisdn_a, dest, imei_new, twr_key, twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+                
+    cdr_a.sort(key=lambda x: x[8])
 
-# Jan 5 — Silence
+    # ── Suspect B: Madhav Prasad ──
+    cdr_b = []
+    imei_b = "357777777777777"
+    for day in range(1, 31):
+        if day == 4:
+            coloc_ts_b = START_DATE + timedelta(days=3, hours=18, minutes=30)
+            cdr_b.append([msisdn_b, msisdn_a, imei_b, "TWR-VJA-001", twr_vja["lat"], twr_vja["lon"], "CALL", 120, fmt_ts(coloc_ts_b)])
+        
+        n_calls = random.randint(2, 5)
+        for _ in range(n_calls):
+            ts = rand_ts(day, 8, 21)
+            dest = random.choice([msisdn_a, handler] + contacts_pool)
+            twr = TOWERS["TWR-KKD-001"]
+            cdr_b.append([msisdn_b, dest, imei_b, "TWR-KKD-001", twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+    cdr_b.sort(key=lambda x: x[8])
 
-# Jan 7 — CO-LOCATION at Chirala with Suspect A (14:55–15:30 window)
-base7b = BASE_DATE + timedelta(days=6)
-for hr, mn in [(14,55), (15,10), (15,25), (15,30)]:
-    dt = base7b.replace(hour=hr, minute=mn, second=random.randint(0,59))
-    b = SUSPECT_A["msisdn"] if hr == 14 else random.choice(MISC_CONTACTS)
-    rows_b.append(make_cdr_row(sl, SUSPECT_B["msisdn"], b, dt, duration(), "MOC", SUSPECT_B["imei"], SUSPECT_B["imsi"], chirala_tower, "CO-LOCATION_WITH_SUSPECT_A"))
-    sl += 1
+    # ── Suspect C: Satyanarayana (Clean Control) ──
+    cdr_c = []
+    imei_c = "356666666666666"
+    family_contacts = ["919494334455", "919494667788"]
+    for day in range(1, 31):
+        n_calls = random.randint(1, 3)
+        for _ in range(n_calls):
+            ts = rand_ts(day, 9, 20)
+            dest = random.choice(family_contacts)
+            twr = TOWERS["TWR-VZG-001"]
+            cdr_c.append([msisdn_c, dest, imei_c, "TWR-VZG-001", twr["lat"], twr["lon"], "CALL", random.randint(30, 300), fmt_ts(ts)])
+    cdr_c.sort(key=lambda x: x[8])
 
-# Jan 8–15 — Vetapalem (trying to flee district)
-vtm = next(t for t in TOWERS if t["id"] == "VTM-MAIN-014")
-for day_off in range(8):
-    base_n = BASE_DATE + timedelta(days=7+day_off)
-    for _ in range(5):
-        b = random.choice(MISC_CONTACTS + [HANDLER_NUMBER])
-        dt = rand_time(base_n, 8, 20)
-        rows_b.append(make_cdr_row(sl, SUSPECT_B["msisdn"], b, dt, duration(), call_type(), SUSPECT_B["imei"], SUSPECT_B["imsi"], vtm, "MOVED_TO_VETAPALEM"))
-        sl += 1
+    # ── IPDR Suspect A (WhatsApp/Telegram) ──
+    ipdr_a = []
+    for day in range(1, 31):
+        for _ in range(random.randint(3, 8)):
+            ts = rand_ts(day, 0, 23)
+            ipdr_a.append([msisdn_a, "157.240.198.35", 443, round(random.uniform(50.0, 4000.0), 2), fmt_ts(ts)])
+        for _ in range(random.randint(1, 5)):
+            ts = rand_ts(day, 0, 23)
+            ipdr_a.append([msisdn_a, "149.154.167.91", 443, round(random.uniform(30.0, 1500.0), 2), fmt_ts(ts)])
+    ipdr_a.sort(key=lambda x: x[4])
 
-rows_b.sort(key=lambda r: datetime.strptime(f"{r[3]} {r[4]}", "%d/%m/%Y %H:%M:%S"))
-for i, r in enumerate(rows_b): r[0] = i + 1
+    # ── IPDR Suspect B ──
+    ipdr_b = []
+    for day in range(1, 31):
+        for _ in range(random.randint(2, 4)):
+            ts = rand_ts(day, 9, 21)
+            ipdr_b.append([msisdn_b, "142.250.76.46", 443, round(random.uniform(10.0, 800.0), 2), fmt_ts(ts)])
+    ipdr_b.sort(key=lambda x: x[4])
 
+    cdr_header = ["msisdn_a", "msisdn_b", "imei", "tower_id", "tower_lat", "tower_lon", "call_type", "duration_sec", "timestamp"]
+    ipdr_header = ["msisdn", "dest_ip", "dest_port", "data_volume_kb", "timestamp"]
 
-# ──────────────────────────────────────────────────────────────────────────────
-# CDR — SUSPECT C (Ramaiah Yadav)
-# ──────────────────────────────────────────────────────────────────────────────
-rows_c = []
-sl = 1
-kdk = next(t for t in TOWERS if t["id"] == "KDK-MAIN-008")
-
-for day in range(15):
-    base = BASE_DATE + timedelta(days=day)
-    for _ in range(random.randint(3, 8)):
-        b = random.choice([SUSPECT_A["msisdn"], HANDLER_NUMBER] + MISC_CONTACTS)
-        dt = rand_time(base, 8, 22)
-        rows_c.append(make_cdr_row(sl, SUSPECT_C["msisdn"], b, dt, duration(), call_type(), SUSPECT_C["imei"], SUSPECT_C["imsi"], kdk, ""))
-        sl += 1
-
-rows_c.sort(key=lambda r: datetime.strptime(f"{r[3]} {r[4]}", "%d/%m/%Y %H:%M:%S"))
-for i, r in enumerate(rows_c): r[0] = i + 1
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# IPDR — SUSPECT A (Ravi Kumar Reddy)
-# ──────────────────────────────────────────────────────────────────────────────
-OTT_APPS = [
-    ("WhatsApp",  "157.240.241.54",  443, "HTTPS/E2E"),
-    ("WhatsApp",  "157.240.241.54",  443, "HTTPS/E2E"),
-    ("Telegram",  "149.154.167.91",  443, "HTTPS/E2E"),
-    ("Telegram",  "149.154.167.91",  443, "HTTPS/E2E"),
-    ("YouTube",   "142.250.76.46",   443, "HTTPS"),
-    ("Google",    "142.250.182.46",  443, "HTTPS"),
-    ("Instagram", "157.240.241.174", 443, "HTTPS"),
-    ("PhonePe",   "52.220.105.26",   443, "HTTPS"),
-]
-
-def make_ipdr_row(sl, msisdn, imsi, start_dt, dur_sec, up_kb, dn_kb, app_info, tower):
-    end_dt = start_dt + timedelta(seconds=dur_sec)
-    sd, st = fmt(start_dt)
-    ed, et = fmt(end_dt)
-    app_name, dest_ip, dest_port, protocol = app_info
-    ip = f"10.{random.randint(100,200)}.{random.randint(1,254)}.{random.randint(1,254)}"
-    return [
-        sl, msisdn, imsi, ip, sd, st, ed, et, dur_sec,
-        up_kb, dn_kb, dest_ip, dest_port, protocol, app_name,
-        tower["id"], f"{tower['lat']:.4f}", f"{tower['lon']:.4f}",
-        "Andhra Pradesh", "BSNL"
-    ]
-
-rows_ipdr_a = []
-sl = 1
-for day in range(15):
-    base = BASE_DATE + timedelta(days=day)
-    tower = random.choice([ong, chr_tower, mkp] if day >= 5 else [ong])
-    for _ in range(random.randint(4, 12)):
-        app = random.choice(OTT_APPS)
-        hr = random.randint(6, 23)
-        dt = base.replace(hour=hr, minute=random.randint(0,59), second=random.randint(0,59))
-        dur = random.randint(30, 3600)
-        up = random.randint(50, 2000)
-        dn = random.randint(200, 8000)
-        rows_ipdr_a.append(make_ipdr_row(sl, SUSPECT_A["msisdn"], SUSPECT_A["imsi"], dt, dur, up, dn, app, tower))
-        sl += 1
-
-rows_ipdr_a.sort(key=lambda r: datetime.strptime(f"{r[4]} {r[5]}", "%d/%m/%Y %H:%M:%S"))
-for i, r in enumerate(rows_ipdr_a): r[0] = i + 1
+    # Write CSVs
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Tirupati_Naidu.csv"), cdr_header, cdr_a)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_IPDR_Tirupati_Naidu.csv"), ipdr_header, ipdr_a)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Madhav_Prasad.csv"), cdr_header, cdr_b)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_IPDR_Madhav_Prasad.csv"), ipdr_header, ipdr_b)
+    write_csv(os.path.join(OUT_DIR, f"{case_prefix}_CDR_Satyanarayana.csv"), cdr_header, cdr_c)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# IPDR — SUSPECT B (Suresh Babu Naidu)
-# ──────────────────────────────────────────────────────────────────────────────
-rows_ipdr_b = []
-sl = 1
-for day in range(15):
-    base = BASE_DATE + timedelta(days=day)
-    tower = random.choice([chirala_tower, vtm] if day >= 7 else [chirala_tower])
-    for _ in range(random.randint(3, 8)):
-        app = random.choice(OTT_APPS[4:]) # non-encrypted or standard web apps
-        if random.random() < 0.15:
-            app = OTT_APPS[0] # WhatsApp occasionally
-        hr = random.randint(7, 22)
-        dt = base.replace(hour=hr, minute=random.randint(0,59), second=random.randint(0,59))
-        dur = random.randint(30, 2000)
-        up = random.randint(20, 1000)
-        dn = random.randint(100, 5000)
-        rows_ipdr_b.append(make_ipdr_row(sl, SUSPECT_B["msisdn"], SUSPECT_B["imsi"], dt, dur, up, dn, app, tower))
-        sl += 1
-
-rows_ipdr_b.sort(key=lambda r: datetime.strptime(f"{r[4]} {r[5]}", "%d/%m/%Y %H:%M:%S"))
-for i, r in enumerate(rows_ipdr_b): r[0] = i + 1
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# WRITE FILES
-# ══════════════════════════════════════════════════════════════════════════════
-print("Generating demo files...")
-
-write_cdr_dataset("CDR_SuspectA_Ravi_Kumar_9441234567", rows_a)
-write_cdr_dataset("CDR_SuspectB_Suresh_Babu_9963456789", rows_b)
-write_cdr_dataset("CDR_SuspectC_Ramaiah_Yadav_9849000312", rows_c)
-
-write_ipdr_dataset("IPDR_SuspectA_Ravi_Kumar_9441234567", rows_ipdr_a)
-write_ipdr_dataset("IPDR_SuspectB_Suresh_Babu_9963456789", rows_ipdr_b)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# README for demo-data folder
-# ══════════════════════════════════════════════════════════════════════════════
-readme = """# TRACE Demo Data — Prakasam District, Andhra Pradesh
-# Case: Organised Robbery Gang — January 2024
-
-We generate data in two formats to accommodate your needs during presentation and system testing:
-1. **Operator Format (Prakasam_District_Operator_...csv)**: Represents the raw, standard DoT/TRAI layout police receive directly from telecom carriers. Includes realistic operators, circle, cell-ID/LAC details. Use these to display or print as mock authentic files.
-2. **Compatible Format (COMPATIBLE_Prakasam_District_...csv)**: Fully compatible with the TRACE system's direct upload parser. Use these to import data into the app!
-
-## Suspect Profiles & Files
-- **Suspect A: Ravi Kumar Reddy** (Primary Suspect, Ongole)
-  - `Prakasam_District_Operator_CDR_SuspectA_Ravi_Kumar_9441234567.csv`
-  - `COMPATIBLE_Prakasam_District_CDR_SuspectA_Ravi_Kumar_9441234567.csv`
-  - `Prakasam_District_Operator_IPDR_SuspectA_Ravi_Kumar_9441234567.csv`
-  - `COMPATIBLE_Prakasam_District_IPDR_SuspectA_Ravi_Kumar_9441234567.csv`
-
-- **Suspect B: Suresh Babu Naidu** (Co-Accused / Distributor, Chirala)
-  - `Prakasam_District_Operator_CDR_SuspectB_Suresh_Babu_9963456789.csv`
-  - `COMPATIBLE_Prakasam_District_CDR_SuspectB_Suresh_Babu_9963456789.csv`
-  - `Prakasam_District_Operator_IPDR_SuspectB_Suresh_Babu_9963456789.csv`
-  - `COMPATIBLE_Prakasam_District_IPDR_SuspectB_Suresh_Babu_9963456789.csv`
-
-- **Suspect C: Ramaiah Yadav** (Facilitator, Kandukur)
-  - `Prakasam_District_Operator_CDR_SuspectC_Ramaiah_Yadav_9849000312.csv`
-  - `COMPATIBLE_Prakasam_District_CDR_SuspectC_Ramaiah_Yadav_9849000312.csv`
-
-## Columns Reference (Standard vs Compatible)
-- **Operator CDR Columns**: Sl_No, A_Party_MSISDN, B_Party_MSISDN, Date, Time, Duration_Sec, Call_Type, IMEI, IMSI, Cell_ID, LAC, Tower_Name, Tower_Latitude, Tower_Longitude, Telecom_Circle, Operator, Roaming_Flag, Remarks
-- **Compatible CDR Columns**: msisdn_a, msisdn_b, imei, tower_id, tower_lat, tower_lon, call_type, duration_sec, timestamp
-- **Operator IPDR Columns**: Sl_No, MSISDN, IMSI, Allocated_IP, Start_Date, Start_Time, End_Date, End_Time, Duration_Sec, Upload_KB, Download_KB, Dest_IP, Dest_Port, Protocol, App_Label, Cell_ID, Tower_Latitude, Tower_Longitude, Telecom_Circle, Operator
-- **Compatible IPDR Columns**: msisdn, dest_ip, dest_port, data_volume_kb, timestamp
-
-## Story Timeline (Prakasam District Robbery Case)
-1. **Ravi Kumar Reddy** operates out of **Ongole Central**.
-2. **Jan 3: IMEI Swap** — Ravi swaps his phone at 18:13 hrs (old IMEI `356812094523001` -> new IMEI `490123456789012`).
-3. **Jan 4: Coordination Burst** — Primary suspect conducts 32 panic calls in one day coordinating with Suresh Babu and handler.
-4. **Jan 5: Silence** — Suspects go dark/silent.
-5. **Jan 6: Crime Area Movement** — Ravi coordinates from **Markapur** (near the scene of interest).
-6. **Jan 7: Co-location Event** — Ravi Kumar Reddy and Suresh Babu Naidu are detected active on the same **Chirala Town** tower between 14:55 and 15:30.
-7. **Common Contact** — Both suspects call the same unidentified handler number `+91-9912000111`.
-
-## Uploading to TRACE
-1. Create a Case (e.g. "Prakasam Robbery Gang").
-2. Click **Upload Records** for Suspect A: Use `COMPATIBLE_Prakasam_District_CDR_SuspectA_Ravi_Kumar_9441234567.csv` and `COMPATIBLE_Prakasam_District_IPDR_SuspectA_Ravi_Kumar_9441234567.csv`. Set name: **Ravi Kumar Reddy**.
-3. Upload Suspect B: Use `COMPATIBLE_Prakasam_District_CDR_SuspectB_Suresh_Babu_9963456789.csv` and `COMPATIBLE_Prakasam_District_IPDR_SuspectB_Suresh_Babu_9963456789.csv`. Set name: **Suresh Babu Naidu**.
-4. Upload Suspect C: Use `COMPATIBLE_Prakasam_District_CDR_SuspectC_Ramaiah_Yadav_9849000312.csv`. Set name: **Ramaiah Yadav**.
-5. Trigger **Analyze** in the Case details. TRACE will automatically flag the IMEI Swapping, Co-Locations at Chirala, Common Handler Contact, and Anomaly scores!
-"""
-
-with open(os.path.join(OUT, "README.md"), "w", encoding="utf-8") as f:
-    f.write(readme)
-print("  Written: README.md")
-print("\nDone! All demo data files created.")
+if __name__ == "__main__":
+    print("Generating three cases for TRACE system...")
+    gen_case_1()
+    gen_case_2()
+    gen_case_3()
+    print("Done generating cases!")

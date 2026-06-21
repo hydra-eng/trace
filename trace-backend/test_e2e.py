@@ -16,11 +16,11 @@ BASE_URL = "http://localhost:8000"
 SEED_DIR = os.path.join(os.path.dirname(__file__), "seed_csvs")
 
 SUSPECTS = [
-    ("Suspect A", "suspect_a", True),   # has IPDR
-    ("Suspect B", "suspect_b", False),
-    ("Suspect C", "suspect_c", False),
-    ("Suspect D", "suspect_d", False),
-    ("Suspect E", "suspect_e", False),
+    ("Kalyan Chakravarthy", "suspect_a", True),   # has IPDR
+    ("Venkatesh Prasad", "suspect_b", False),
+    ("Subba Rao", "suspect_c", False),
+    ("Ananthakrishna", "suspect_d", False),
+    ("Anjali Devi", "suspect_e", False),
 ]
 
 EXPECTED_EVENTS = {
@@ -133,8 +133,8 @@ def main():
     print(f"    {OK} Nodes: {len(s_nodes)} suspects + {len(c_nodes)} contacts | Edges: {len(graph['edges'])}")
 
     # ── 7. Suspect A profile ──────────────────────────────────────────────────
-    print("\n[7] Fetching Suspect A profile...")
-    suspect_a_id = suspect_ids.get("Suspect A")
+    print("\n[7] Fetching Kalyan Chakravarthy profile...")
+    suspect_a_id = suspect_ids.get("Kalyan Chakravarthy")
     if suspect_a_id:
         res = requests.get(f"{BASE_URL}/suspects/{suspect_a_id}/profile")
         assert res.status_code == 200, f"Profile failed: {res.text}"

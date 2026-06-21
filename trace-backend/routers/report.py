@@ -269,6 +269,9 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     story.append(section_heading("1. SUBJECT IDENTIFICATION"))
     
     sorted_recs = sorted(cdrs, key=lambda x: x.timestamp)
+    start_date = sorted_recs[0].timestamp.strftime('%d %b %Y') if sorted_recs else "01 Jan 2024"
+    end_date = sorted_recs[-1].timestamp.strftime('%d %b %Y') if sorted_recs else "30 Jan 2024"
+
     imeis = list(dict.fromkeys(r.imei for r in sorted_recs if r.imei))
     last_known_imei = imeis[-1] if imeis else "UNKNOWN"
     prev_imei = imeis[-2] if len(imeis) >= 2 else "None"
@@ -404,8 +407,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
             
     silence_start = 4
     silence_end = 5
-    start_date = sorted_recs[0].timestamp.strftime('%d %b %Y') if sorted_recs else "01 Jan 2024"
-    end_date = sorted_recs[-1].timestamp.strftime('%d %b %Y') if sorted_recs else "30 Jan 2024"
+
 
     left_tbl_data = [
         ["Metric", "Value"],
