@@ -47,3 +47,7 @@ trace-backend/logs/
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Firebase CLI cache
+.firebase/
+

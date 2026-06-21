@@ -5,6 +5,10 @@
 
 *A criminal intelligence platform that turns raw telecom data (CDR/IPDR) into actionable investigative evidence.*
 
+<div align="center">
+  <h3>👉👉 <b>Aromax - Click this link to try it yourself: <a href="https://trace-prakasham.web.app">https://trace-prakasham.web.app</a></b> 👈👈</h3>
+</div>
+
 <br />
 
 <div align="center">
