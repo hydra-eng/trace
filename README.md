@@ -3,7 +3,7 @@
 
 **Prakasham District Police · Andhra Pradesh, India**
 
-*A high-performance criminal intelligence workbench that parses raw telecom data (CDR/IPDR) to trace device evasions, map co-locations, and reconstruct target networks.*
+*A criminal intelligence platform that turns raw telecom data (CDR/IPDR) into actionable investigative evidence.*
 
 <br />
 
@@ -24,28 +24,27 @@
 
 ---
 
-## 🔍 What is TRACE?
+## What is TRACE?
 
-TRACE is a **web-based criminal intelligence platform** built for district Cyber Cell investigators. It takes raw **Call Detail Records (CDR)** and **Internet Protocol Detail Records (IPDR)** — exactly as received from telecom operators — and automatically extracts intelligence that would otherwise take days of manual work.
+TRACE is a **web-based criminal intelligence workbench** built for district Cyber Cell investigators. It takes raw **Call Detail Records (CDR)** and **Internet Protocol Detail Records (IPDR)** — exactly as received from telecom operators — and automatically extracts intelligence that would otherwise take days of manual work.
 
-> [!TIP]
-> **No templates. No manual column matching. No Excel macros.** Simply upload raw CSV exports from BSNL, Jio, Airtel, or Vi, and TRACE does the rest.
+No templates. No formatting. No Excel macros. Just upload and analyze.
 
-### Core Analytics Stack
+### What TRACE Does Automatically
 
 | # | Capability | What the Investigator Sees |
 |:--|:-----------|:--------------------------|
-| 1 | 📂 **Zero-Config Ingestion** | Drag-and-drop raw CSVs — TRACE maps the columns automatically using fuzzy keyword heuristics |
-| 2 | 📱 **IMEI Swap Detection** | Exact time, date, and cell tower coordinates where a suspect swapped active SIM cards |
-| 3 | 🤝 **Co-Location Engine** | Automatically highlights instances where multiple suspects converged at the same cell tower in a 30-min window |
-| 4 | 🕸 **Network Graph** | Visual topology showing calls between suspects, handlers, and common contact nodes |
-| 5 | 🔒 **OTT App Fingerprinting** | Recognizes WhatsApp, Telegram, and Signal secure sessions from raw IPDR traffic volume signatures |
-| 6 | 🧠 **AI Anomaly Scoring** | A 0–100 risk score per suspect generated using an Isolation Forest outlier model, with full factor justifications |
-| 7 | 📄 **65B IE Act PDF Brief** | Generates tamper-proof PDF suspect profile dossiers with embedded SHA-256 source file hashes |
+| 1 | **Zero-Config Data Ingestion** | Upload raw CSVs from BSNL, Jio, Airtel, or Vi — TRACE maps the columns automatically |
+| 2 | **IMEI Swap Detection** | Exact time, date, and cell tower where a suspect switched to a new handset |
+| 3 | **Co-Location Detection** | When two or more suspects were at the same cell tower within a configurable time window |
+| 4 | **Criminal Network Graph** | Visual map of who called whom — suspects, handlers, and shared contacts |
+| 5 | **OTT App Fingerprinting** | WhatsApp, Telegram, and Signal usage detected from IPDR data patterns |
+| 6 | **AI Anomaly Scoring** | A 0–100 risk score per suspect with a point-by-point breakdown |
+| 7 | **Court-Ready PDF Reports** | Tamper-proof PDF with SHA-256 file hash — Section 65B IE Act compliant |
 
 ---
 
-## ⚡ Why TRACE is Different
+## Why TRACE is Different
 
 | Area | Legacy Methods | TRACE |
 |:-----|:---------------|:------|
@@ -60,11 +59,7 @@ TRACE is a **web-based criminal intelligence platform** built for district Cyber
 
 ---
 
-## 🖼️ Platform Screenshots
-
-<details>
-<summary><b>📷 Expand Platform Screenshot Showcase (9 Images)</b></summary>
-<br />
+## Platform Screenshots
 
 ### Secure Boot loader
 > Safe system bootloader displaying initialization steps, table validations, and security configuration checks.
@@ -127,11 +122,9 @@ TRACE is a **web-based criminal intelligence platform** built for district Cyber
 
 ![Swagger Docs](docs/assets/swagger_docs.png)
 
-</details>
-
 ---
 
-## ⚙️ System Architecture
+## System Architecture
 
 ```mermaid
 graph TD
@@ -160,117 +153,184 @@ graph TD
 
 ---
 
-## 🛠️ How the Analytics Works
+## How the Analytics Works
 
 ### 1. IMEI Swap Detection
-Every CDR row contains the subscriber's phone number (`msisdn_a`), the target contacted (`msisdn_b`), and the device identifier (`imei`). TRACE parses all records sequentially by time:
+
+Every CDR row has a phone number (MSISDN) and a handset ID (IMEI). TRACE sorts all records by time and flags any row where the IMEI changes — capturing exactly when and where the suspect switched devices.
+
 ```
-[CDR Row 1] MSISDN: 9912345678 | IMEI: 354812XXXXXX001 | Cell: Ongole West | 01-Jun 10:32 AM
-[CDR Row 2] MSISDN: 9912345678 | IMEI: 490512XXXXXX999 | Cell: Ongole West | 03-Jun 02:07 PM
-                                  ↑ DEVICE REPLACED -> IMEI SWAP FLAGGED ↑
+CDR Row 1: MSISDN 9912345678 | IMEI: 354812XXXXXX | Tower: Chirala North | 01-Jun 10:32
+CDR Row 2: MSISDN 9912345678 | IMEI: 490512XXXXXX | Tower: Chirala North | 03-Jun 14:07
+                                       ↑ DIFFERENT — IMEI SWAP FLAGGED ↑
 ```
-
-### 2. Co-Location Detection
-The co-location engine calculates geospatial and temporal intersection. If multiple suspects register cell tower hits on the same tower sector within 30 minutes, they are flagged for physical convergence:
-$$\Delta T = |T_a - T_b| \le 30\text{ minutes}$$
-$$\text{Cell Site ID}_a = \text{Cell Site ID}_b$$
-
-<details>
-<summary>📂 <b>View Zero-Config Ingestion Header Mapping Logic</b></summary>
-<br />
-
-The backend uses a fuzzy header mapping dictionary to parse files from Airtel, Jio, BSNL, and Vi without template modifications:
-- **MSISDN A:** `msisdn`, `calling_number`, `source_msisdn`, `phone`, `a_number`, `subscriber_number`
-- **MSISDN B:** `called_number`, `dialed_digits`, `destination_msisdn`, `b_number`, `recipient`
-- **IMEI:** `imei`, `imeisv`, `handset_id`, `device_id`
-- **Tower Latitude:** `latitude`, `lat`, `tower_lat`, `bts_lat`, `location_lat`
-- **Tower Longitude:** `longitude`, `lon`, `lng`, `tower_lon`, `bts_lon`, `location_lon`
-- **Timestamp:** `timestamp`, `time`, `date_time`, `call_time`, `date`
-</details>
 
 ---
 
-## 🚀 Quick Start
+### 2. Co-Location Detection
 
-> [!IMPORTANT]
-> **Default Secure Credentials:**
-> - **Credential ID:** `investigator`
-> - **Access Passphrase:** `PrakasamPolice_2026!`
+TRACE compares the call records of all suspects in a case. When two or more suspects connect to the same cell tower within a configurable time window (default: 30 minutes), a meeting event is recorded.
+
+```
+Suspect A → Tower: Chirala_Town_BTS01 → 02-Jun 15:00
+Suspect B → Tower: Chirala_Town_BTS01 → 02-Jun 15:15
+                    Same tower, 15 minutes apart → MEETING DETECTED
+```
+
+---
+
+### 3. AI Anomaly Scoring
+
+Each suspect receives a 0–100 risk score based on five behavioural signals:
+
+| Signal | What it Detects |
+|:-------|:----------------|
+| Night Calls (23:00–05:00) | Unusual communication hours |
+| Silence Gaps (>24 hrs) | Deliberate blackout periods |
+| IMEI Swap Count | Device evasion attempts |
+| Co-Location Events | Physical meetings with other suspects |
+| OTT App Volume Spikes | Encrypted communication bursts |
+
+**Risk Bands:**
+
+| Score | Level | Recommended Action |
+|:------|:------|:-------------------|
+| 0 – 30 | Low | Routine monitoring |
+| 31 – 60 | Medium | Elevated investigation |
+| 61 – 80 | High | Priority surveillance |
+| 81 – 100 | Critical | Immediate escalation |
+
+---
+
+## Technology Stack
+
+### Backend
+| Technology | Role |
+|:-----------|:-----|
+| **FastAPI** (Python 3.11) | REST API framework |
+| **SQLAlchemy** + SQLite / PostgreSQL | Database ORM and storage |
+| **pandas** | CSV ingestion and column mapping |
+| **NetworkX** | Suspect graph construction |
+| **scikit-learn** (IsolationForest) | AI anomaly scoring |
+| **ReportLab** | Court-ready PDF generation |
+| **JWT** | Investigator authentication |
+
+### Frontend
+| Technology | Role |
+|:-----------|:-----|
+| **React 18** + TypeScript | Web application framework |
+| **Vite** | Fast build and dev server |
+| **Tailwind CSS** | UI styling |
+| **MapLibre GL** + **DeckGL** | High-performance interactive geospatial maps |
+| **React Flow** | Suspect network graph |
+| **Recharts** | Heatmaps and call charts |
+
+### Infrastructure
+| Technology | Role |
+|:-----------|:-----|
+| **Docker Compose** | One-command deployment |
+| **Uvicorn** | ASGI server for FastAPI |
+| **Swagger UI** | Auto-generated API docs |
+
+---
+
+## Quick Start
 
 ### Option A — Docker (Recommended)
-Launch the platform in a containerized environment (fully offline-safe):
+
 ```bash
 git clone https://github.com/hydra-eng/trace.git
 cd trace
 docker-compose up --build
 ```
-- **Platform Access:** [http://localhost:5173](http://localhost:5173)
-- **Interactive REST API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 
-<details>
-<summary>📦 <b>Option B — Manual Workspace Setup</b></summary>
-<br />
-
-**Prerequisites:** Python 3.11+ and Node.js 18+
-
-1. **Backend Setup:**
-   ```bash
-   cd trace-backend
-   python -m venv venv
-   source venv/bin/activate  # Or venv\Scripts\activate on Windows
-   pip install -r requirements.txt
-   python -m uvicorn main:app --reload --port 8000
-   ```
-
-2. **Frontend Setup:**
-   ```bash
-   cd trace-frontend
-   npm install
-   npm run dev
-   ```
-</details>
+- Frontend: [http://localhost:5173](http://localhost:5173)
+- API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ---
 
-## 📂 Preloaded Scenarios & Walkthrough (5 Minutes)
+### Option B — Manual Setup
 
-We provide preloaded case records based in **Prakasham District, Andhra Pradesh** and the surrounding **AP/Telangana corridor**.
+**Backend:**
+```bash
+cd trace-backend
+pip install -r requirements.txt
+python -m uvicorn main:app --reload --port 8000
+```
+
+**Frontend:**
+```bash
+cd trace-frontend
+npm install
+npm run dev
+```
+
+**Default Login Credentials:**
+```
+Credential ID : investigator
+Access Passphrase : PrakasamPolice_2026!
+```
+
+---
+
+## Demo Walkthrough & Seed Scenarios (5 Minutes)
+
+We provide preloaded case records based in **Prakasham District, Andhra Pradesh** and the **AP/Telangana corridor**.
 
 ### Case 1: Ongole Tobacco Smuggling Syndicate (FIR 124/2026)
 * **Narrative:** Smuggling group operating across Ongole, Chirala, Markapur, and Kandukur.
 * **Suspect Files (located in `demo-data/`):**
-  * **Kalyan Chakravarthy** (Kingpin): `Case1_Ongole_Tobacco_Smuggling_CDR_Kalyan_Chakravarthy.csv`, `Case1_Ongole_Tobacco_Smuggling_IPDR_Kalyan_Chakravarthy.csv`
-  * **Venkatesh Prasad** (Coordinator): `Case1_Ongole_Tobacco_Smuggling_CDR_Venkatesh_Prasad.csv`, `Case1_Ongole_Tobacco_Smuggling_IPDR_Venkatesh_Prasad.csv`
-  * **Subba Rao** (Local dealer): `Case1_Ongole_Tobacco_Smuggling_CDR_Subba_Rao.csv`
-  * **Ananthakrishna** (Associate): `Case1_Ongole_Tobacco_Smuggling_CDR_Ananthakrishna.csv`
-  * **Anjali Devi** (Control subject): `Case1_Ongole_Tobacco_Smuggling_CDR_Anjali_Devi.csv`
+  * Kalyan Chakravarthy (Kingpin): `Case1_Ongole_Tobacco_Smuggling_CDR_Kalyan_Chakravarthy.csv` and `Case1_Ongole_Tobacco_Smuggling_IPDR_Kalyan_Chakravarthy.csv`
+  * Venkatesh Prasad (Coordinator): `Case1_Ongole_Tobacco_Smuggling_CDR_Venkatesh_Prasad.csv` and `Case1_Ongole_Tobacco_Smuggling_IPDR_Venkatesh_Prasad.csv`
+  * Subba Rao (Local dealer): `Case1_Ongole_Tobacco_Smuggling_CDR_Subba_Rao.csv`
+  * Ananthakrishna (Associate): `Case1_Ongole_Tobacco_Smuggling_CDR_Ananthakrishna.csv`
+  * Anjali Devi (Control subject): `Case1_Ongole_Tobacco_Smuggling_CDR_Anjali_Devi.csv`
 
 ### Step-by-Step Walkthrough
 
 ```mermaid
 flowchart LR
-    A[Login] --> B[Select Seed Case]
-    B --> C[Run Analysis]
-    C --> D[Explore Network Graph]
-    C --> E[Inspect Suspect Heatmaps]
-    E --> F[Download PDF Brief]
+    A[Login] --> B[Create Case]
+    B --> C[Upload CDR + IPDR]
+    B --> D[Use Preloaded Seed Case]
+    C & D --> E[Run Analysis]
+    E --> F[Explore Network / Maps]
+    F --> G[Download Court Brief]
 ```
 
 1. **Login:** Enter `investigator` and `PrakasamPolice_2026!` at the secure gateway.
-2. **Select Case:** On the dashboard, click the preloaded `Operation Sandstorm TEST` case.
-3. **Run Analysis:** Click **Run Analysis** in the upper right. TRACE processes all records in seconds.
-4. **Inspect Findings:**
-   - **Network Graph:** Switch to the **Network Graph** tab and toggle **Fullscreen**. Notice the red Node `919888000111` (common handler Venkata Ramana) connecting Kalyan, Venkatesh, and Subba Rao.
-   - **Suspect Profile:** Go back to suspects and click on Kalyan Chakravarthy. Observe the IMEI swap flagged on June 3rd, the co-location at Chirala Prakasham tower (`TWR-CDD-001`) with Subba Rao, and the parsed WhatsApp/Telegram usage sessions.
-5. **Download Report:** Click **Download Report** to export the court-ready PDF dossier.
+2. **Select Case:** Select the seeded `Operation Sandstorm TEST` case or click **New Case** to create one.
+3. **Upload Records:** Click **Upload Records** and upload the CDR and IPDR CSV files from `demo-data/` for Kalyan Chakravarthy and his associates.
+4. **Run Analysis:** Click **Run Analysis**. TRACE normalizes and parses the CSV data in seconds.
+5. **Inspect Findings:**
+   - **Network Graph** -> Open **Network Graph** and toggle **Fullscreen**. Observe the red Node `919888000111` (common handler Venkata Ramana) connecting the suspects.
+   - **Suspect Profile** -> Click Kalyan Chakravarthy. Observe the IMEI swap flagged on June 3rd, the co-location at Chirala Prakasham tower (`TWR-CDD-001`) with Subba Rao and Venkatesh, and WhatsApp/Telegram usage sessions parsed from IPDR.
+6. **Download Report:** Click **Download Report** to export the court-ready PDF containing the SHA-256 hash validation header.
 
 ---
 
-## 🔒 Security & Compliance
+## API Reference
 
-> [!WARNING]
+Full docs available at [http://localhost:8000/docs](http://localhost:8000/docs)
+
+| Method | Endpoint | Description |
+|:-------|:---------|:------------|
+| `GET` | `/cases` | List all cases |
+| `POST` | `/cases` | Create a new case |
+| `POST` | `/upload/cdr` | Ingest CDR records |
+| `POST` | `/upload/ipdr` | Ingest IPDR records |
+| `POST` | `/analysis/run/{case_id}` | Execute 5-layer analysis |
+| `GET` | `/suspects/{suspect_id}/profile` | Retrieve suspect profile, heatmap, and movement |
+| `GET` | `/cases/{case_id}/network` | Retrieve ReactFlow graph structure |
+| `GET` | `/report/pdf/{suspect_id}` | Export Section 65B IE Act PDF Brief |
+
+---
+
+## Security & Compliance
+
 > **RESTRICTED — FOR AUTHORIZED LAW ENFORCEMENT USE ONLY**
 
-- **Chain of Custody:** Generated PDF reports automatically calculate and embed the **SHA-256 hash** of the uploaded source files to comply with **Section 65B of the Indian Evidence Act**.
-- **Data Sovereignty:** TRACE is designed to run **fully offline**. No case data, cell coordinates, or uploaded records are sent to external cloud servers.
-- **Audit Logging:** Every upload and analysis operation is timestamped and logged for session compliance.
+- PDF reports include a **SHA-256 hash** of uploaded source files — establishes Chain of Custody compliant with **Section 65B of the Indian Evidence Act**
+- All sessions secured via **JWT tokens** with configurable expiry
+- TRACE runs **fully offline** — no data leaves the investigator's workstation
+- All upload and analysis operations are logged with timestamps
