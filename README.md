@@ -1,12 +1,13 @@
-#                TRACE
-
+# TRACE
 ### Telecom Record Analysis for Criminal Examination
 
 **Prakasham District Police · Andhra Pradesh, India**
 
-*A criminal intelligence platform that turns raw telecom data into actionable investigative evidence.*
+*A criminal intelligence platform that turns raw telecom data (CDR/IPDR) into actionable investigative evidence.*
 
 <br />
+
+<div align="center">
 
 ![Status](https://img.shields.io/badge/Status-Hackathon%20Ready-brightgreen?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20REST%20API-0066cc?style=for-the-badge)
@@ -47,7 +48,7 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 
 | Area | Legacy Methods | TRACE |
 |:-----|:---------------|:------|
-| **Data Upload** | Fails if operator headers change even slightly | Auto-detects and maps native headers from all operators |
+| **Data Ingestion** | Fails if operator headers change even slightly | Auto-detects and maps native headers from all operators |
 | **Device Evasion** | Spotted only by manually scanning thousands of rows | Automatically flags IMEI swaps with timestamp and tower |
 | **Suspect Meetings** | Manual cross-referencing of timestamps in Excel | Geospatial engine detects co-location within minutes |
 | **Relationships** | Investigators mentally map who knows whom | Interactive network graph built from actual call data |
@@ -60,15 +61,22 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 
 ## Platform Screenshots
 
-### Login Portal
-> Investigators authenticate with a Credential ID and passphrase. All sessions are JWT-secured.
+### Secure Boot loader
+> Safe system bootloader displaying initialization steps, table validations, and security configuration checks.
+
+![Boot Screen](docs/assets/boot_screen.png)
+
+---
+
+### Secure Login Portal
+> Investigators authenticate with a Credential ID and secure passphrase. All sessions are JWT-secured.
 
 ![Login Page](docs/assets/login_page.png)
 
 ---
 
 ### Case Management Dashboard
-> Create and manage investigation cases. View suspect counts and active alerts per case.
+> Create and manage investigation cases. View suspect counts and active alerts per case at a glance.
 
 ![Cases Dashboard](docs/assets/cases_page.png)
 
@@ -82,28 +90,35 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 ---
 
 ### Geospatial Cell Tower Map
-> Every CDR record plotted on an interactive map. Trace suspect movement. Spot meeting locations visually.
+> Every CDR record plotted on an interactive MapLibre map. Trace suspect movement and spot meetings visually. Supports standard vectors and Esri Satellite views.
 
 ![Map View](docs/assets/map_geospatial.png)
 
 ---
 
-### Criminal Network Graph
-> Force-directed graph of suspects and their contacts. Red nodes = high-risk handlers. Edge thickness = call volume.
+### Interactive Criminal Network Graph
+> Force-directed graph of suspects and their contacts using ReactFlow. Red nodes represent high-risk handlers, and dashed nodes represent common contacts.
 
 ![Network Graph](docs/assets/network_graph.png)
 
 ---
 
+### Fullscreen Network Graph Workspace
+> Native HTML5 fullscreen mode for the network graph. Perfect for large-screen cyber labs, keeping all search, filter, legend, and detail controls fully interactive and z-indexed.
+
+![Network Graph Fullscreen](docs/assets/network_graph_fullscreen.png)
+
+---
+
 ### Suspect Deep-Dive Profile
-> Full suspect profile: 7×24 hourly heatmap, IMEI swap alerts, OTT usage, co-location events, and PDF download.
+> Comprehensive suspect profile: 7×24 hourly activity heatmap, IMEI swap alerts, OTT application usage session breakdown, and court-ready PDF download.
 
 ![Suspect Profile](docs/assets/suspect_profile.png)
 
 ---
 
 ### API Documentation (Swagger UI)
-> Every feature exposed as a documented REST endpoint. Integrations and automation-ready.
+> Every analytical capability and database transaction exposed as a documented REST endpoint.
 
 ![Swagger Docs](docs/assets/swagger_docs.png)
 
@@ -128,7 +143,7 @@ graph TD
     D --> E["React Frontend\nInteractive Web UI"]
     D --> F["PDF Report Generator\nChain of Custody"]
 
-    E --> E1["Cell Tower Map (Leaflet)"]
+    E --> E1["Cell Tower Map (MapLibre/DeckGL)"]
     E --> E2["Network Graph (React Flow)"]
     E --> E3["7×24 Call Heatmap"]
 
@@ -145,8 +160,8 @@ graph TD
 Every CDR row has a phone number (MSISDN) and a handset ID (IMEI). TRACE sorts all records by time and flags any row where the IMEI changes — capturing exactly when and where the suspect switched devices.
 
 ```
-CDR Row 1: MSISDN 9912345678 | IMEI: 354812XXXXXX | Tower: Chirala North | 01-Jan 10:32
-CDR Row 2: MSISDN 9912345678 | IMEI: 490512XXXXXX | Tower: Chirala North | 03-Jan 14:07
+CDR Row 1: MSISDN 9912345678 | IMEI: 354812XXXXXX | Tower: Chirala North | 01-Jun 10:32
+CDR Row 2: MSISDN 9912345678 | IMEI: 490512XXXXXX | Tower: Chirala North | 03-Jun 14:07
                                        ↑ DIFFERENT — IMEI SWAP FLAGGED ↑
 ```
 
@@ -157,9 +172,9 @@ CDR Row 2: MSISDN 9912345678 | IMEI: 490512XXXXXX | Tower: Chirala North | 03-Ja
 TRACE compares the call records of all suspects in a case. When two or more suspects connect to the same cell tower within a configurable time window (default: 30 minutes), a meeting event is recorded.
 
 ```
-Suspect A → Tower: Chirala_Town_BTS04 → 07-Jan 13:45
-Suspect B → Tower: Chirala_Town_BTS04 → 07-Jan 14:10
-                   Same tower, 25 minutes apart → MEETING DETECTED
+Suspect A → Tower: Chirala_Town_BTS01 → 02-Jun 15:00
+Suspect B → Tower: Chirala_Town_BTS01 → 02-Jun 15:15
+                    Same tower, 15 minutes apart → MEETING DETECTED
 ```
 
 ---
@@ -206,7 +221,7 @@ Each suspect receives a 0–100 risk score based on five behavioural signals:
 | **React 18** + TypeScript | Web application framework |
 | **Vite** | Fast build and dev server |
 | **Tailwind CSS** | UI styling |
-| **React-Leaflet** | Interactive cell tower maps |
+| **MapLibre GL** + **DeckGL** | High-performance interactive geospatial maps |
 | **React Flow** | Suspect network graph |
 | **Recharts** | Heatmaps and call charts |
 
@@ -252,51 +267,45 @@ npm run dev
 
 **Default Login Credentials:**
 ```
-Username : investigator
-Password : PrakasamPolice_2026!
+Credential ID : investigator
+Access Passphrase : PrakasamPolice_2026!
 ```
 
 ---
 
-## Demo Walkthrough (5 Minutes)
+## Demo Walkthrough & Seed Scenarios (5 Minutes)
 
-A step-by-step script to demonstrate TRACE to hackathon judges.
+We provide preloaded case records based in **Prakasham District, Andhra Pradesh** and the **AP/Telangana corridor**.
+
+### Case 1: Ongole Tobacco Smuggling Syndicate (FIR 124/2026)
+* **Narrative:** Smuggling group operating across Ongole, Chirala, Markapur, and Kandukur.
+* **Suspect Files (located in `demo-data/`):**
+  * Kalyan Chakravarthy (Kingpin): `Case1_Ongole_Tobacco_Smuggling_CDR_Kalyan_Chakravarthy.csv` and `Case1_Ongole_Tobacco_Smuggling_IPDR_Kalyan_Chakravarthy.csv`
+  * Venkatesh Prasad (Coordinator): `Case1_Ongole_Tobacco_Smuggling_CDR_Venkatesh_Prasad.csv` and `Case1_Ongole_Tobacco_Smuggling_IPDR_Venkatesh_Prasad.csv`
+  * Subba Rao (Local dealer): `Case1_Ongole_Tobacco_Smuggling_CDR_Subba_Rao.csv`
+  * Ananthakrishna (Associate): `Case1_Ongole_Tobacco_Smuggling_CDR_Ananthakrishna.csv`
+  * Anjali Devi (Control subject): `Case1_Ongole_Tobacco_Smuggling_CDR_Anjali_Devi.csv`
+
+### Step-by-Step Walkthrough
 
 ```mermaid
 flowchart LR
     A[Login] --> B[Create Case]
     B --> C[Upload CDR + IPDR]
-    C --> D[Run Analysis]
-    D --> E[Explore Intelligence]
-    E --> F[Download PDF]
+    B --> D[Use Preloaded Seed Case]
+    C & D --> E[Run Analysis]
+    E --> F[Explore Network / Maps]
+    F --> G[Download Court Brief]
 ```
 
-**Step 1 — Login**
-Enter `investigator` / `PrakasamPolice_2026!` to open the investigator dashboard.
-
-**Step 2 — Create a Case**
-Click **New Case** → name it `Prakasam Gang Robbery Case` → Save.
-
-**Step 3 — Upload Demo Data**
-Go to **Upload Records** and add the files from the `demo-data/` folder:
-
-| Suspect | CDR | IPDR |
-|:--------|:----|:-----|
-| Ravi Kumar (Suspect A) | `CDR_SuspectA.csv` | `IPDR_SuspectA.csv` |
-| Suresh Babu (Suspect B) | `CDR_SuspectB.csv` | `IPDR_SuspectB.csv` |
-| Ramaiah Yadav (Suspect C) | `CDR_SuspectC.csv` | — |
-
-**Step 4 — Run Analysis**
-Click **Run Analysis**. TRACE processes all records in seconds.
-
-**Step 5 — Show the Intelligence**
-
-- **Network Graph** → Red node `+91-9912000111` links all three suspects — a shared handler number proving coordination.
-- **Suspect A Profile** → IMEI swap on Jan 3, co-location with Suspect B at Chirala Town on Jan 7, WhatsApp + Telegram OTT usage.
-- **Shared Contacts Panel** → All numbers that appear in more than one suspect's records, ranked by frequency.
-
-**Step 6 — Download Court Brief**
-Click **Download Brief** → PDF includes the case header, anomaly breakdown, and SHA-256 hash of the uploaded source files.
+1. **Login:** Enter `investigator` and `PrakasamPolice_2026!` at the secure gateway.
+2. **Select Case:** Select the seeded `Operation Sandstorm TEST` case or click **New Case** to create one.
+3. **Upload Records:** Click **Upload Records** and upload the CDR and IPDR CSV files from `demo-data/` for Kalyan Chakravarthy and his associates.
+4. **Run Analysis:** Click **Run Analysis**. TRACE normalizes and parses the CSV data in seconds.
+5. **Inspect Findings:**
+   - **Network Graph** -> Open **Network Graph** and toggle **Fullscreen**. Observe the red Node `919888000111` (common handler Venkata Ramana) connecting the suspects.
+   - **Suspect Profile** -> Click Kalyan Chakravarthy. Observe the IMEI swap flagged on June 3rd, the co-location at Chirala Prakasham tower (`TWR-CDD-001`) with Subba Rao and Venkatesh, and WhatsApp/Telegram usage sessions parsed from IPDR.
+6. **Download Report:** Click **Download Report** to export the court-ready PDF containing the SHA-256 hash validation header.
 
 ---
 
@@ -306,70 +315,14 @@ Full docs available at [http://localhost:8000/docs](http://localhost:8000/docs)
 
 | Method | Endpoint | Description |
 |:-------|:---------|:------------|
-| `POST` | `/auth/login` | Authenticate and receive JWT token |
-| `GET` | `/cases/` | List all cases |
-| `POST` | `/cases/` | Create a new case |
-| `DELETE` | `/cases/{id}` | Delete a case |
-| `POST` | `/upload/cdr` | Upload CDR file |
-| `POST` | `/upload/ipdr` | Upload IPDR file |
-| `POST` | `/analysis/run/{case_id}` | Run full analysis pipeline |
-| `GET` | `/suspects/{case_id}` | Get all suspect profiles |
-| `GET` | `/network/{case_id}` | Get network graph data |
-| `GET` | `/report/pdf/{case_id}` | Download court-ready PDF |
-
----
-
-## Project Structure
-
-```
-trace/
-├── trace-backend/
-│   ├── main.py                 # API entry point
-│   ├── database.py             # Database models
-│   ├── requirements.txt
-│   └── routers/
-│       ├── auth.py             # Login & JWT
-│       ├── cases.py            # Case management
-│       ├── upload.py           # CDR/IPDR ingestion & mapping
-│       ├── analysis.py         # 5-layer analytics engine
-│       ├── suspects.py         # Suspect profiles
-│       ├── network.py          # Graph data
-│       └── report.py           # PDF generation
-│
-├── trace-frontend/
-│   └── src/
-│       ├── pages/              # Route-level views
-│       ├── components/         # Reusable UI components
-│       ├── hooks/              # React hooks
-│       └── api/                # API client
-│
-├── demo-data/                  # Sample CDR/IPDR files
-├── docs/assets/                # Screenshots
-├── docker-compose.yml
-└── README.md
-```
-
----
-
-## Roadmap
-
-### v1.0 — Current Release
-
-- [x] Zero-Config CDR/IPDR ingestion (BSNL, Jio, Airtel, Vi)
-- [x] IMEI Swap Detection
-- [x] Co-Location / Geospatial Convergence Engine
-- [x] Criminal Network Graph
-- [x] Interactive Cell Tower Map
-- [x] OTT App Fingerprinting via IPDR
-- [x] AI Anomaly Scoring (IsolationForest)
-- [x] Court-Ready PDF with SHA-256 Chain of Custody
-
-### v2.0 — Planned
-
-- [ ] Real-Time Tower Feed Integration
-- [ ] Cross-District Case Federation
-- [ ] Automated FIR Draft Generation
-- [ ] CCTNS / Dial 112 Integration
+| `GET` | `/cases` | List all cases |
+| `POST` | `/cases` | Create a new case |
+| `POST` | `/upload/cdr` | Ingest CDR records |
+| `POST` | `/upload/ipdr` | Ingest IPDR records |
+| `POST` | `/analysis/run/{case_id}` | Execute 5-layer analysis |
+| `GET` | `/suspects/{suspect_id}/profile` | Retrieve suspect profile, heatmap, and movement |
+| `GET` | `/cases/{case_id}/network` | Retrieve ReactFlow graph structure |
+| `GET` | `/report/pdf/{suspect_id}` | Export Section 65B IE Act PDF Brief |
 
 ---
 
