@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import ReactFlow, {
   Background,
   Controls,
@@ -15,7 +15,7 @@ import "reactflow/dist/style.css";
 import dagre from "@dagrejs/dagre";
 import { api } from "../lib/api";
 import type { NetworkGraphOut, SuspectOut } from "../lib/types";
-import { Maximize2, X, Search } from "lucide-react";
+import { Maximize2, Minimize2, X, Search } from "lucide-react";
 
 // ── Anomaly score converter ──────────────────────────────────────────────────
 function convertAnomalyScore(rawScore: number): number {
@@ -225,8 +225,23 @@ interface SelectedNodeState {
 
 function NetworkGraphInner({ caseId, suspects }: Props) {
   const { fitView } = useReactFlow();
+  const containerRef = useRef<HTMLDivElement>(null);
   const [graphData, setGraphData] = useState<NetworkGraphOut | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error("Error attempting to enable fullscreen:", err);
+      });
+    } else {
+      document.exitFullscreen().catch((err) => {
+        console.error("Error attempting to exit fullscreen:", err);
+      });
+    }
+  };
 
   // Toggle states
   const [showTowers, setShowTowers] = useState(false);
@@ -261,13 +276,29 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
   // Close filter dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+      if (filterRef.current && !filterRef.current.contains(e.target as any)) {
         setFilterOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Sync state and re-fit view on HTML5 fullscreen change
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isNowFullscreen = document.fullscreenElement === containerRef.current;
+      setIsFullscreen(isNowFullscreen);
+      setTimeout(() => {
+        fitView({ duration: 300 });
+      }, 150);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, [fitView]);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -468,9 +499,28 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
   const suspectNodes = graphData.nodes.filter((n) => n.node_type === "suspect");
 
   return (
-    <div style={{ width: "100%", height: "100%", position: "relative" }} className="bg-slate-50 overflow-hidden font-sans">
+    <div
+      ref={containerRef}
+      style={
+        isFullscreen
+          ? {
+              width: "100%",
+              height: "100%",
+              background: "#f8fafc",
+              padding: "16px",
+            }
+          : {
+              width: "100%",
+              height: "100%",
+              position: "relative",
+              background: "#f8fafc",
+              overflow: "hidden",
+            }
+      }
+      className="font-sans"
+    >
       {/* ── Minimal Toolbar ── */}
-      <div className="absolute top-3 left-3 right-3 z-20 bg-white border border-slate-200 shadow-sm rounded-lg p-2 flex flex-wrap gap-4 items-center justify-between text-slate-700">
+      <div className="absolute top-3 left-3 right-3 z-[50] bg-white border border-slate-200 shadow-sm rounded-lg p-2 flex flex-wrap gap-4 items-center justify-between text-slate-700">
         <div className="flex flex-wrap gap-4 items-center">
           <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-medium text-slate-600">
             <input
@@ -511,6 +561,15 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
           >
             <Maximize2 size={11} />
             Fit View
+          </button>
+
+          {/* Fullscreen Toggle */}
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-200 px-2 py-1 rounded transition-colors cursor-pointer"
+          >
+            {isFullscreen ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+            {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
           </button>
         </div>
 
@@ -570,7 +629,7 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
       </div>
 
       {/* ── Legend ── */}
-      <div className="absolute bottom-3 left-3 z-20 bg-white border border-slate-200 rounded-lg p-3 shadow-sm text-[10px] max-w-[170px] text-slate-700">
+      <div className="absolute bottom-3 left-3 z-[50] bg-white border border-slate-200 rounded-lg p-3 shadow-sm text-[10px] max-w-[170px] text-slate-700">
         <h5 className="font-semibold text-slate-800 mb-2 border-b border-slate-100 pb-1">Legend</h5>
         <div className="flex flex-col gap-2">
           {[
@@ -590,7 +649,7 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
 
       {/* ── Minimal Side Panel ── */}
       {selectedNode && (
-        <div className="absolute right-0 top-0 bottom-0 w-64 bg-white border-l border-slate-200 z-30 overflow-y-auto p-4 flex flex-col gap-4 text-slate-800 shadow-md">
+        <div className="absolute right-0 top-0 bottom-0 w-64 bg-white border-l border-slate-200 z-[60] overflow-y-auto p-4 flex flex-col gap-4 text-slate-800 shadow-md">
           <div className="flex justify-between items-start border-b border-slate-100 pb-3">
             <div>
               <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">

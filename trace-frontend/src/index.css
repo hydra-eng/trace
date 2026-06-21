@@ -53,6 +53,45 @@
   }
 }
 
+/* Global sleek button bounding boxes and animations */
+@layer base {
+  button:not(.react-flow__controls-button) {
+    @apply border border-zinc-300/80 shadow-sm hover:shadow hover:border-zinc-400/90 active:scale-[0.98] transition-all duration-150;
+  }
+
+  button.bg-zinc-900 {
+    @apply border border-zinc-950 hover:border-zinc-800;
+  }
+
+  button.bg-blue-600 {
+    @apply border border-blue-700 hover:border-blue-800;
+  }
+
+  button.bg-red-600 {
+    @apply border border-red-700 hover:border-red-800;
+  }
+
+  button.bg-green-600 {
+    @apply border border-green-700 hover:border-green-800;
+  }
+
+  button.bg-green-50, button.bg-blue-50, button.bg-slate-50, button.bg-white {
+    @apply border border-zinc-200 hover:border-zinc-300;
+  }
+
+  button[class*="border-transparent"] {
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+  button[class*="border-transparent"]:hover {
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+  button[class*="border-transparent"]:active {
+    transform: none !important;
+  }
+}
+
 
 
 @keyframes pulse-ring {

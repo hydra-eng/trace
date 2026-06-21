@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import type { SuspectProfileOut } from "../lib/types";
 import CallCalendar from "../components/CallCalendar";
 import MovementMap from "../components/MovementMap";
-import { Download, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { Download, AlertTriangle, CheckCircle } from "lucide-react";
 
 function SeverityBadge({ sev }: { sev: string }) {
   if (sev === "HIGH") return <span className="badge-high">{sev}</span>;
@@ -47,7 +47,6 @@ export default function SuspectProfilePage() {
   const [profile, setProfile] = useState<SuspectProfileOut | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   useEffect(() => {
     if (!suspectId) return;

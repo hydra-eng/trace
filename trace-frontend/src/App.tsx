@@ -478,8 +478,6 @@ export default function App() {
     }
   }, [loc.pathname, isLoggedIn]);
 
-  const isLongPage = loc.pathname.startsWith("/cases") || loc.pathname.startsWith("/suspects") || loc.pathname.startsWith("/reports");
-
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-zinc-50 font-sans relative">
       {/* Boot loader always runs first */}

@@ -3,23 +3,16 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import type { CaseOut, SuspectOut } from "../lib/types";
 import {
-  Settings,
   Search,
   Download,
   Loader2,
   Server,
   CheckCircle,
   XCircle,
-  AlertTriangle,
   RefreshCw,
   User,
-  Phone,
-  MapPin,
-  Clock,
-  Shield,
   Activity,
   Bell,
-  Database,
   FileBarChart,
   Lock,
 } from "lucide-react";

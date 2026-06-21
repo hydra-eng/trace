@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { MovementPoint, EventOut } from "../lib/types";
 import { X, Maximize2, Minimize2 } from "lucide-react";
 import Map, { NavigationControl } from "react-map-gl/maplibre";
@@ -251,7 +251,7 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
     .filter((swap): swap is typeof swap & { tower: any } => swap.tower !== null);
 
   // Construct DeckGL Layers
-  const layers = [
+  const layers: any[] = [
     // Layer 1: Cell towers Scatterplot
     new ScatterplotLayer({
       id: "scatterplot-towers",
@@ -359,7 +359,7 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
       id: "scatterplot-suspects-pulse",
       data: currentSuspectPositions,
       getPosition: (d: any) => [d.lon, d.lat],
-      getRadius: (d: any) => 1200 + pulseScale * 1400,
+      getRadius: (_d: any) => 1200 + pulseScale * 1400,
       getFillColor: (d: any) => [d.color[0], d.color[1], d.color[2], Math.max(0, 180 - pulseScale * 110)],
       getLineColor: (d: any) => [d.color[0], d.color[1], d.color[2], Math.max(0, 255 - pulseScale * 150)],
       lineWidthMinPixels: 1,
@@ -486,7 +486,7 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
         >
           <Map
             mapLib={maplibregl}
-            mapStyle={mapStyleMode === "satellite" ? SATELLITE_STYLE : MAP_STYLE}
+            mapStyle={mapStyleMode === "satellite" ? (SATELLITE_STYLE as any) : MAP_STYLE}
             maxBounds={MAX_BOUNDS}
             minZoom={6.5}
             maxZoom={14}
