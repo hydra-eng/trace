@@ -92,7 +92,6 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
   // Fullscreen, style, and pulsing animation states
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapStyleMode, setMapStyleMode] = useState<"vector" | "satellite">("vector");
-  const [pulseScale, setPulseScale] = useState(1.0);
 
   // Esc key to exit fullscreen
   useEffect(() => {
@@ -106,20 +105,6 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
     }
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isFullscreen]);
-
-  // Pulse animation loop
-  useEffect(() => {
-    let active = true;
-    const tick = () => {
-      if (!active) return;
-      setPulseScale((s) => (s >= 1.6 ? 1.0 : s + 0.02));
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const getDayNumber = (tsStr: string) => {
     const ts = new Date(tsStr);
@@ -354,23 +339,18 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
       fontWeight: 700
     }),
 
-    // Layer 4: Suspect current positions (pulsing target indicator ring)
+    // Layer 4: Suspect current positions (target indicator ring)
     new ScatterplotLayer({
       id: "scatterplot-suspects-pulse",
       data: currentSuspectPositions,
       getPosition: (d: any) => [d.lon, d.lat],
-      getRadius: (_d: any) => 1200 + pulseScale * 1400,
-      getFillColor: (d: any) => [d.color[0], d.color[1], d.color[2], Math.max(0, 180 - pulseScale * 110)],
-      getLineColor: (d: any) => [d.color[0], d.color[1], d.color[2], Math.max(0, 255 - pulseScale * 150)],
-      lineWidthMinPixels: 1,
+      getRadius: 2000,
+      getFillColor: (d: any) => [d.color[0], d.color[1], d.color[2], 50],
+      getLineColor: (d: any) => [d.color[0], d.color[1], d.color[2], 200],
+      lineWidthMinPixels: 1.5,
       stroked: true,
       filled: true,
-      pickable: false,
-      updateTriggers: {
-        getRadius: [pulseScale],
-        getFillColor: [pulseScale],
-        getLineColor: [pulseScale]
-      }
+      pickable: false
     }),
 
     // Layer 4: Suspect current positions (actual dot)
