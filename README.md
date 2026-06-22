@@ -126,6 +126,17 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 
 ---
 
+### Court-Ready PDF Forensic Report (Unique Feature)
+> Automatically generated multi-page, court-grade investigation briefs. Contains all ingested CDR/IPDR metrics, maps, timeline analyses, and an auto-populated Section 65B Certificate of authenticity under the Indian Evidence Act, 1872. Features professional, eye-catching signature cards with bounding boxes for the Investigating Officer, Supervisory Officer, and Court Submission Officer to ensure judicial compliance.
+
+<div align="center">
+  <img src="docs/assets/pdf_report_cover.png" width="45%" alt="PDF Cover Page" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="docs/assets/pdf_report_details.png" width="45%" alt="PDF Details Page" />
+</div>
+
+---
+
 ### API Documentation (Swagger UI)
 > Every analytical capability and database transaction exposed as a documented REST endpoint.
 

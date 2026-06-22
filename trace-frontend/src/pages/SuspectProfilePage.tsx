@@ -5,6 +5,7 @@ import type { SuspectProfileOut } from "../lib/types";
 import CallCalendar from "../components/CallCalendar";
 import MovementMap from "../components/MovementMap";
 import { Download, AlertTriangle, CheckCircle } from "lucide-react";
+import { generatePdfReport } from "../lib/generatePdfReport";
 
 function SeverityBadge({ sev }: { sev: string }) {
   if (sev === "HIGH") return <span className="badge-high">{sev}</span>;
@@ -119,30 +120,20 @@ export default function SuspectProfilePage() {
   const handleDownloadReport = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!suspectId) return;
+    // In demo/mock mode (no backend), generate the full court-grade PDF client-side.
+    // When a live backend is available, fall through to the server-generated PDF.
     const url = api.getReportUrl(suspectId);
     if (url.startsWith("data:")) {
+      // Demo mode — generate real PDF using jsPDF
       try {
-        const base64Parts = url.split(",");
-        const base64Data = base64Parts[1];
-        const binary = atob(base64Data);
-        const len = binary.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-        const blob = new Blob([bytes], { type: "application/pdf" });
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = `TRACE_${suspect.label.replace(/\s+/g, "_")}_report.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(blobUrl);
+        // Derive case name from the case_id in the suspect object if possible
+        const caseName = suspect.case_id ?? "Unknown Case";
+        generatePdfReport(profile, caseName);
       } catch (err) {
-        console.error("Failed to download PDF in demo mode:", err);
+        console.error("Failed to generate PDF report:", err);
       }
     } else {
+      // Live backend — stream the server-generated PDF
       window.location.href = url;
     }
   };

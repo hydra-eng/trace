@@ -330,30 +330,36 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#F1F5F9')),
     ]))
     story.append(cover_tbl)
-    story.append(Spacer(1, 30))
+    story.append(Spacer(1, 15))
 
-    # Signature blocks on cover page
+    # Signature blocks on cover page with bounding boxes
     sig_style = ParagraphStyle('sig', fontName='Helvetica', fontSize=8,
         textColor=C_SLATE, alignment=TA_CENTER, leading=12)
     sig_bold = ParagraphStyle('sigb', fontName='Helvetica-Bold', fontSize=8,
         textColor=C_BLACK, alignment=TA_CENTER)
-    sig_line = "_" * 28
+    sig_line = "_" * 24
 
     sig_cols = [
-        [Paragraph(sig_line, sig_style), Paragraph("Preparing Officer", sig_bold),
-         Paragraph("(Signature & Seal)", sig_style)],
-        [Paragraph(sig_line, sig_style), Paragraph("Verifying Officer / Inspector", sig_bold),
-         Paragraph("(Signature & Seal)", sig_style)],
-        [Paragraph(sig_line, sig_style), Paragraph("Forwarding Officer / DSP", sig_bold),
-         Paragraph("(Signature & Seal)", sig_style)],
+        [Paragraph("<br/>" + sig_line + "<br/>", sig_style), Paragraph("Preparing Officer", sig_bold),
+         Paragraph("(Signature & Seal)", sig_style), Paragraph("<br/>", sig_style)],
+        [Paragraph("<br/>" + sig_line + "<br/>", sig_style), Paragraph("Verifying Officer / Inspector", sig_bold),
+         Paragraph("(Signature & Seal)", sig_style), Paragraph("<br/>", sig_style)],
+        [Paragraph("<br/>" + sig_line + "<br/>", sig_style), Paragraph("Forwarding Officer / DSP", sig_bold),
+         Paragraph("(Signature & Seal)", sig_style), Paragraph("<br/>", sig_style)],
     ]
-    sig_tbl = Table([sig_cols], colWidths=[165, 165, 165])
+    sig_tbl = Table([[sig_cols[0], '', sig_cols[1], '', sig_cols[2]]], colWidths=[148, 25, 148, 26, 148])
     sig_tbl.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('LEFTPADDING', (0,0), (-1,-1), 4),
-        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('BOX', (0,0), (0,0), 0.5, C_SLATE),
+        ('BOX', (2,0), (2,0), 0.5, C_SLATE),
+        ('BOX', (4,0), (4,0), 0.5, C_SLATE),
+        ('BACKGROUND', (0,0), (0,0), C_ALT_ROW),
+        ('BACKGROUND', (2,0), (2,0), C_ALT_ROW),
+        ('BACKGROUND', (4,0), (4,0), C_ALT_ROW),
     ]))
     story.append(sig_tbl)
     story.append(PageBreak())
@@ -1190,7 +1196,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     story.append(cert_box)
     story.append(Spacer(1, 10))
 
-    # Signature blocks
+    # Signature blocks with bounding boxes
     sig_left = (
         "<b>Prepared By:</b><br/><br/><br/>"
         "_______________________________<br/>"
@@ -1211,14 +1217,22 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     
     sig_table = Table([[
         Paragraph(sig_left, ParagraphStyle('sl', fontName='Helvetica', fontSize=8.5, leading=13, textColor=C_SLATE)),
+        "", # Spacer column
         Paragraph(sig_right, ParagraphStyle('sr', fontName='Helvetica', fontSize=8.5, leading=13, textColor=C_SLATE))
-    ]], colWidths=[240, 255])
+    ]], colWidths=[235, 25, 235])
     sig_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 15),
+        ('BOX', (0,0), (0,0), 0.5, C_SLATE),
+        ('BOX', (2,0), (2,0), 0.5, C_SLATE),
+        ('BACKGROUND', (0,0), (0,0), C_ALT_ROW),
+        ('BACKGROUND', (2,0), (2,0), C_ALT_ROW),
+        ('TOPPADDING', (0,0), (-1,-1), 10),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 10),
+        ('LEFTPADDING', (0,0), (-1,-1), 10),
+        ('RIGHTPADDING', (0,0), (-1,-1), 10),
     ]))
     story.append(sig_table)
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
 
     # Final disclaimer (fixed spacing, near the bottom)
     disclaimer_text = (
@@ -1337,11 +1351,12 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     ))
     story.append(Spacer(1, 30))
 
+    # Bounding boxes for Section 65B signature block
     cert_sig_rows = [
         [
-            Paragraph("_" * 30, ParagraphStyle('cs1', fontName='Helvetica', fontSize=8.5, alignment=TA_CENTER)),
+            Paragraph("<br/>" + "_" * 24 + "<br/>", ParagraphStyle('cs1', fontName='Helvetica', fontSize=8.5, alignment=TA_CENTER)),
             Paragraph("", cert_sig_style),
-            Paragraph("_" * 30, ParagraphStyle('cs2', fontName='Helvetica', fontSize=8.5, alignment=TA_CENTER)),
+            Paragraph("<br/>" + "_" * 24 + "<br/>", ParagraphStyle('cs2', fontName='Helvetica', fontSize=8.5, alignment=TA_CENTER)),
         ],
         [
             Paragraph("<b>Certifying Officer</b>", ParagraphStyle('cb1', fontName='Helvetica-Bold', fontSize=8.5, alignment=TA_CENTER)),
@@ -1349,19 +1364,25 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
             Paragraph("<b>Verifying Officer</b>", ParagraphStyle('cb2', fontName='Helvetica-Bold', fontSize=8.5, alignment=TA_CENTER)),
         ],
         [
-            Paragraph("(Sub-Inspector / Inspector, Prakasham CID)", ParagraphStyle('cd1', fontName='Helvetica', fontSize=7.5, textColor=C_MUTED, alignment=TA_CENTER)),
+            Paragraph("(Sub-Inspector / Inspector, Prakasham CID)<br/>", ParagraphStyle('cd1', fontName='Helvetica', fontSize=7.5, textColor=C_MUTED, alignment=TA_CENTER)),
             Paragraph("", cert_sig_style),
-            Paragraph("(DSP / SP Crime, Prakasham District)", ParagraphStyle('cd2', fontName='Helvetica', fontSize=7.5, textColor=C_MUTED, alignment=TA_CENTER)),
+            Paragraph("(DSP / SP Crime, Prakasham District)<br/>", ParagraphStyle('cd2', fontName='Helvetica', fontSize=7.5, textColor=C_MUTED, alignment=TA_CENTER)),
         ],
     ]
     cert_sig_table = Table(cert_sig_rows, colWidths=[220, 55, 220])
     cert_sig_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('BOX', (0,0), (0,2), 0.5, C_SLATE),
+        ('BOX', (2,0), (2,2), 0.5, C_SLATE),
+        ('BACKGROUND', (0,0), (0,2), C_ALT_ROW),
+        ('BACKGROUND', (2,0), (2,2), C_ALT_ROW),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
     ]))
     story.append(cert_sig_table)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 10))
 
     # Official seal box
     seal_style = ParagraphStyle('seal', fontName='Helvetica', fontSize=8,
