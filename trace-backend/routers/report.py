@@ -77,13 +77,13 @@ def section_heading(text: str) -> Paragraph:
     return Paragraph(
         f'<b>{text}</b>',
         ParagraphStyle('sh', fontName='Times-Bold', fontSize=9.5,
-                       textColor=colors.black, spaceBefore=4, spaceAfter=2)
+                       textColor=colors.black, spaceBefore=2, spaceAfter=1)
     )
 
 body_style = ParagraphStyle(
     'body', fontName='Times-Roman', fontSize=8.5,
     textColor=colors.black, leading=10.5, alignment=TA_JUSTIFY,
-    spaceAfter=2
+    spaceAfter=1
 )
 
 def base_table_style(has_header=True) -> TableStyle:
@@ -262,20 +262,20 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     style_cover_label = ParagraphStyle('cvfl', fontName='Times-Bold', fontSize=9,
         textColor=C_BLACK, alignment=TA_LEFT, leading=11)
 
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 1))
     story.append(Paragraph("GOVERNMENT OF ANDHRA PRADESH", style_cover_dept))
     story.append(Paragraph("HOME DEPARTMENT — ANDHRA PRADESH POLICE", style_cover_dept))
     story.append(Paragraph("CRIMINAL INVESTIGATION DEPARTMENT (CID)", style_cover_dept))
     story.append(Paragraph("PRAKASHAM DISTRICT, ONGOLE", style_cover_dept))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 1))
     story.append(HRFlowable(width="100%", thickness=1.5, color=C_BLACK))
-    story.append(Spacer(1, 2))
+    story.append(Spacer(1, 1))
     story.append(HRFlowable(width="100%", thickness=0.5, color=C_BLACK))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 1))
 
     story.append(Paragraph("TELECOM INTELLIGENCE INVESTIGATION REPORT", style_cover_title))
     story.append(Paragraph("CDR / IPDR Forensic Analysis — Restricted Document", style_cover_sub))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 1))
 
     # Classification stamp box
     stamp_style = ParagraphStyle('stamp', fontName='Times-Bold', fontSize=10,
@@ -289,7 +289,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ('BOTTOMPADDING', (0,0), (-1,-1), 5),
     ]))
     story.append(stamp_tbl)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 1))
 
     # Cover table — case details
     cover_fields = [
@@ -320,7 +320,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#EAEAEA')),
     ]))
     story.append(cover_tbl)
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 1))
 
     # Signature blocks on cover page with bounding boxes
     sig_style = ParagraphStyle('sig', fontName='Times-Roman', fontSize=8,
@@ -358,15 +358,15 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     # PAGE 2 — TABLE OF CONTENTS
     # ──────────────────────────────────────────────────────────────────────────
     toc_heading = ParagraphStyle('toch', fontName='Times-Bold', fontSize=11,
-        textColor=C_BLACK, spaceAfter=4, alignment=TA_LEFT)
+        textColor=C_BLACK, spaceAfter=2, alignment=TA_LEFT)
     toc_item = ParagraphStyle('toci', fontName='Times-Roman', fontSize=8.5,
-        textColor=C_SLATE, leading=12, leftIndent=8)
+        textColor=C_SLATE, leading=10, leftIndent=8)
     toc_item_b = ParagraphStyle('tocib', fontName='Times-Bold', fontSize=8.5,
-        textColor=C_BLACK, leading=12, leftIndent=8)
+        textColor=C_BLACK, leading=10, leftIndent=8)
 
     story.append(Paragraph("TABLE OF CONTENTS", toc_heading))
     story.append(HRFlowable(width="100%", thickness=1, color=C_BLACK))
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     toc_entries = [
         ("COVER PAGE", "Officer Signatures & Classification"),
@@ -430,7 +430,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ('RIGHTPADDING', (0,0), (-1,-1), 6),
     ]))
     story.append(brief_header)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     # Section 1 — SUBJECT IDENTIFICATION TABLE
     story.append(section_heading("1. SUBJECT IDENTIFICATION"))
@@ -481,7 +481,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         sub_table_style.add('LINELEFT', (0, 1), (0, 2), 2, colors.black)
     sub_table.setStyle(sub_table_style)
     story.append(sub_table)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     # Section 2 — ACTIVE ALERTS SUMMARY
     active_alerts = [ev for ev in events if ev.severity in ["HIGH", "MEDIUM"]]
@@ -545,7 +545,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         alerts_table.setStyle(TableStyle(alerts_style))
         story.append(alerts_table)
     
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     # ──────────────────────────────────────────────────────────────────────────
     # PAGE 2 — CALL BEHAVIOUR ANALYSIS
@@ -616,7 +616,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ('BOTTOMPADDING', (0,0), (-1,-1), 0),
     ]))
     story.append(metrics_parent)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     imei_swap_event = next((e for e in events if e.event_type == "IMEI_SWAP"), None)
     imei_swap_date = imei_swap_event.occurred_at.strftime('%d %b %Y') if imei_swap_event and imei_swap_event.occurred_at else "03 Jan 2024"
@@ -632,7 +632,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         f"{'An IMEI change was recorded on ' + imei_swap_date + ', indicating possible handset replacement for evasion purposes.' if has_imei_swap else ''}"
     )
     story.append(Paragraph(behaviour_note, body_style))
-    story.append(Spacer(1, 2))
+    story.append(Spacer(1, 1))
 
     # Section 3.1 — BEHAVIOURAL ANOMALY SCORE BREAKDOWN
     story.append(Paragraph("<b>3.1 Behavioural Anomaly Score Breakdown</b>",
@@ -692,7 +692,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     ]
     score_table.setStyle(TableStyle(score_style))
     story.append(score_table)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
 
     # Section 4 — CONTACT NETWORK ANALYSIS
@@ -746,7 +746,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         net_style.append(('FONTNAME', (4, idx), (4, idx), 'Times-Bold'))
     net_table.setStyle(TableStyle(net_style))
     story.append(net_table)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     story.append(Paragraph("<b>4.2 Network Observation</b>", ParagraphStyle('sub2', fontName='Times-Bold', fontSize=9, textColor=C_BLACK, spaceAfter=2)))
     handler_number = "9888000001"
@@ -770,7 +770,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     )
     story.append(Paragraph(network_note, body_style))
 
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     # Section 5 — IMEI HISTORY
     story.append(section_heading("5. IMEI HISTORY"))
@@ -799,7 +799,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         imei_style.append(('FONTNAME', (3, idx), (3, idx), 'Times-Bold'))
     imei_table.setStyle(TableStyle(imei_style))
     story.append(imei_table)
-    story.append(Spacer(1, 2))
+    story.append(Spacer(1, 1))
 
     if imei_swap_event:
         swap_ts_str = imei_swap_event.detail.get("swap_at_timestamp", "2024-01-03T18:13:43")
@@ -839,11 +839,11 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
             ('RIGHTPADDING', (0,0), (-1,-1), 6),
         ]))
         story.append(swap_box)
-        story.append(Spacer(1, 2))
+        story.append(Spacer(1, 1))
 
     # Section 6 — CELL TOWER MOVEMENT RECORD
     story.append(section_heading("6. CELL TOWER MOVEMENT RECORD"))
-    story.append(Paragraph("<i>Tower locations are approximate. Cell tower assignments are based on CDR records obtained from the telecom service provider. Actual physical location may vary within the tower's coverage radius.</i>", ParagraphStyle('subitalic', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=4)))
+    story.append(Paragraph("<i>Tower locations are approximate. Cell tower assignments are based on CDR records obtained from the telecom service provider. Actual physical location may vary within the tower's coverage radius.</i>", ParagraphStyle('subitalic', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=2)))
     
     tower_visits = {}
     for r in cdrs:
@@ -915,7 +915,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     unique_towers_count = len(sorted_towers)
     districts = set(t[1]["district"] for t in sorted_towers)
     districts_count = len(districts)
-    story.append(Paragraph(f"<b>Total towers visited: {unique_towers_count} across {districts_count} district(s)</b>", ParagraphStyle('tr', fontName='Times-Bold', fontSize=8, spaceBefore=3, spaceAfter=4)))
+    story.append(Paragraph(f"<b>Total towers visited: {unique_towers_count} across {districts_count} district(s)</b>", ParagraphStyle('tr', fontName='Times-Bold', fontSize=8, spaceBefore=1, spaceAfter=1)))
     
     story.append(Paragraph("<b>6.1 Geographic Summary</b>", ParagraphStyle('subgeo', fontName='Times-Bold', fontSize=9, textColor=C_BLACK, spaceAfter=2)))
     lats = [info["lat"] for tid, info in sorted_towers if info["lat"]]
@@ -948,12 +948,12 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         f"{'The subject was recorded at Tower ' + coloc_tower_name + ' simultaneously with ' + coloc_suspect_names + ' on ' + coloc_date + ', indicating a possible physical meeting.' if len(coloc_events) > 0 else ''}"
     )
     story.append(Paragraph(geo_note, body_style))
-    story.append(Spacer(1, 2))
+    story.append(Spacer(1, 1))
 
     # Section 7 — PHYSICAL CONVERGENCE EVENTS
     if coloc_events:
         story.append(section_heading("7. PHYSICAL CONVERGENCE EVENTS"))
-        story.append(Paragraph("<i>A convergence event is defined as two or more subjects appearing at the same cell tower within a 30-minute time window, as per the analysis parameters.</i>", ParagraphStyle('subconv', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=4)))
+        story.append(Paragraph("<i>A convergence event is defined as two or more subjects appearing at the same cell tower within a 30-minute time window, as per the analysis parameters.</i>", ParagraphStyle('subconv', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=2)))
         
         # Limit to first 2 to keep layout budget compliant
         for idx, ev in enumerate(coloc_events[:2], start=1):
@@ -1006,16 +1006,16 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
                     tbl_style.append(('BACKGROUND', (0, r_idx), (-1, r_idx), colors.HexColor('#F2F2F2')))
             tbl.setStyle(TableStyle(tbl_style))
             story.append(tbl)
-            story.append(Spacer(1, 2))
+            story.append(Spacer(1, 1))
 
         if len(coloc_events) > 2:
             extra_count = len(coloc_events) - 2
-            story.append(Paragraph(f"<i>Note: {extra_count} additional convergence events were recorded at other sites. Refer to database logs.</i>", ParagraphStyle('extranote', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=4)))
+            story.append(Paragraph(f"<i>Note: {extra_count} additional convergence events were recorded at other sites. Refer to database logs.</i>", ParagraphStyle('extranote', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=2)))
 
     # Section 8 — OTT APPLICATION USAGE (IPDR Analysis)
     if ipdrs:
         story.append(section_heading("8. OTT APPLICATION USAGE — INTERNET PROTOCOL DETAIL RECORD ANALYSIS"))
-        story.append(Paragraph("<i>The following data was extracted from Internet Protocol Detail Records (IPDR) obtained from the telecom service provider. OTT application identification is based on destination IP address resolution against known application IP ranges.</i>", ParagraphStyle('subott', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=4)))
+        story.append(Paragraph("<i>The following data was extracted from Internet Protocol Detail Records (IPDR) obtained from the telecom service provider. OTT application identification is based on destination IP address resolution against known application IP ranges.</i>", ParagraphStyle('subott', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=2)))
         
         ott_table_data = [["App", "Sessions", "Data Volume", "First Recorded", "Last Recorded", "Risk Note"]]
         from itertools import groupby as _gb2
@@ -1056,7 +1056,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
             ott_style.append(('FONTNAME', (5, idx), (5, idx), 'Times-Bold'))
         ott_table.setStyle(TableStyle(ott_style))
         story.append(ott_table)
-        story.append(Spacer(1, 2))
+        story.append(Spacer(1, 1))
 
         ott_box_html = (
             "<b><font size=8.5 color='#000000'>NOTE: WhatsApp and Telegram communications employ end-to-end encryption.</font></b><br/>"
@@ -1074,7 +1074,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
             ('RIGHTPADDING', (0,0), (-1,-1), 6),
         ]))
         story.append(ott_box)
-        story.append(Spacer(1, 2))
+        story.append(Spacer(1, 1))
 
     # Section 9 — RECOMMENDATIONS
     story.append(section_heading("9. INVESTIGATION RECOMMENDATIONS"))
@@ -1121,14 +1121,13 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         rec_html = f"<b>{idx}.</b>  {rec}"
         story.append(Paragraph(rec_html, ParagraphStyle('rec_style', parent=body_style, leftIndent=15, firstLineIndent=-15, spaceAfter=2)))
 
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     # ──────────────────────────────────────────────────────────────────────────
     # PAGE 4 — SIGNATURE & CERTIFICATION
     # ──────────────────────────────────────────────────────────────────────────
     
     # Section 10 — CERTIFICATION
-    story.append(section_heading("10. CERTIFICATION AND SECURITY SIGNATURES"))
     sha256_of_source_cdr_file = compute_data_hash(suspect.id, db)
     cert_text = (
         f"<b><font size=9.5 color='#000000'>CERTIFICATION</font></b><br/><br/>"
@@ -1156,8 +1155,6 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ('LEFTPADDING', (0,0), (-1,-1), 8),
         ('RIGHTPADDING', (0,0), (-1,-1), 8),
     ]))
-    story.append(cert_box)
-    story.append(Spacer(1, 3))
 
     # Signature blocks with bounding boxes
     sig_left = (
@@ -1194,8 +1191,6 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ('LEFTPADDING', (0,0), (-1,-1), 6),
         ('RIGHTPADDING', (0,0), (-1,-1), 6),
     ]))
-    story.append(sig_table)
-    story.append(Spacer(1, 2))
 
     # Final disclaimer (fixed spacing, near the bottom)
     disclaimer_text = (
@@ -1206,7 +1201,16 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         "and obtained through proper legal channels before use in court proceedings."
     )
     disclaimer_p = Paragraph(disclaimer_text, ParagraphStyle('dc', fontName='Times-Italic', fontSize=7, textColor=colors.HexColor('#333333'), alignment=TA_JUSTIFY, leading=9))
-    story.append(disclaimer_p)
+    
+    story.append(KeepTogether([
+        section_heading("10. CERTIFICATION AND SECURITY SIGNATURES"),
+        Spacer(1, 1),
+        cert_box,
+        Spacer(1, 1),
+        sig_table,
+        Spacer(1, 1),
+        disclaimer_p
+    ]))
 
     # ──────────────────────────────────────────────────────────────────────────
     # ANNEX A — Section 65B Certificate (Indian Evidence Act)
@@ -1214,11 +1218,11 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     story.append(PageBreak())
 
     cert_title_style = ParagraphStyle('cth', fontName='Times-Bold', fontSize=12,
-        textColor=colors.black, alignment=TA_CENTER, spaceAfter=3)
+        textColor=colors.black, alignment=TA_CENTER, spaceAfter=2)
     cert_sub_style = ParagraphStyle('cts', fontName='Times-Roman', fontSize=9,
         textColor=colors.black, alignment=TA_CENTER, spaceAfter=1)
     cert_body_style = ParagraphStyle('ctb', fontName='Times-Roman', fontSize=8.5,
-        textColor=colors.black, alignment=TA_JUSTIFY, leading=11, spaceAfter=4)
+        textColor=colors.black, alignment=TA_JUSTIFY, leading=10, spaceAfter=2)
     cert_field_style = ParagraphStyle('ctf', fontName='Times-Bold', fontSize=8.5,
         textColor=colors.black, leading=11)
 
@@ -1226,11 +1230,11 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     story.append(Paragraph("CERTIFICATE UNDER SECTION 65B", cert_title_style))
     story.append(Paragraph("Indian Evidence Act, 1872 (as amended by Information Technology Act, 2000)",
         cert_sub_style))
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
     story.append(HRFlowable(width="100%", thickness=1.5, color=C_BLACK))
-    story.append(Spacer(1, 2))
+    story.append(Spacer(1, 1))
     story.append(HRFlowable(width="100%", thickness=0.5, color=C_BLACK))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 1))
 
     # Certificate body text (as per Section 65B(4) requirements)
     sorted_recs_cert = sorted(cdrs, key=lambda x: x.timestamp)
@@ -1247,7 +1251,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         f"Section 65B of the Indian Evidence Act, 1872:"
     )
     story.append(Paragraph(cert_intro, cert_body_style))
-    story.append(Spacer(1, 2))
+    story.append(Spacer(1, 1))
 
     # Numbered paragraphs as per court format
     cert_clauses = [
@@ -1302,7 +1306,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ]))
         story.append(clause_tbl)
 
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     # Signature block on 65B
     cert_sig_style = ParagraphStyle('css', fontName='Times-Roman', fontSize=8.5,
@@ -1312,7 +1316,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         f"&nbsp;&nbsp;&nbsp;&nbsp;Place: <b>Ongole, Andhra Pradesh</b>",
         cert_sig_style
     ))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 1))
 
     # Bounding boxes for Section 65B signature block
     cert_sig_rows = [
@@ -1345,7 +1349,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ('RIGHTPADDING', (0,0), (-1,-1), 6),
     ]))
     story.append(cert_sig_table)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 1))
 
     # Official seal box
     seal_style = ParagraphStyle('seal', fontName='Times-Roman', fontSize=8,
