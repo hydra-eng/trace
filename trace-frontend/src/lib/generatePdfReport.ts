@@ -12,21 +12,21 @@ import { jsPDF } from "jspdf";
 
 // ─── Colour palette (RGB tuples) ─────────────────────────────────────────────
 const C = {
-  navyDark: [15, 23, 42] as [number, number, number],
-  navy: [30, 41, 59] as [number, number, number],
-  navyLight: [51, 65, 85] as [number, number, number],
-  red: [185, 28, 28] as [number, number, number],
-  redLight: [254, 226, 226] as [number, number, number],
-  amber: [146, 64, 14] as [number, number, number],
-  amberLight: [254, 243, 199] as [number, number, number],
-  green: [21, 128, 61] as [number, number, number],
-  greenLight: [220, 252, 231] as [number, number, number],
-  slate: [71, 85, 105] as [number, number, number],
-  slateLight: [241, 245, 249] as [number, number, number],
+  navyDark: [0, 0, 0] as [number, number, number],
+  navy: [0, 0, 0] as [number, number, number],
+  navyLight: [30, 30, 30] as [number, number, number],
+  red: [0, 0, 0] as [number, number, number],
+  redLight: [242, 242, 242] as [number, number, number],
+  amber: [0, 0, 0] as [number, number, number],
+  amberLight: [245, 245, 245] as [number, number, number],
+  green: [0, 0, 0] as [number, number, number],
+  greenLight: [250, 250, 250] as [number, number, number],
+  slate: [50, 50, 50] as [number, number, number],
+  slateLight: [245, 245, 245] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
-  border: [226, 232, 240] as [number, number, number],
-  text: [15, 23, 42] as [number, number, number],
-  muted: [100, 116, 139] as [number, number, number],
+  border: [150, 150, 150] as [number, number, number],
+  text: [0, 0, 0] as [number, number, number],
+  muted: [80, 80, 80] as [number, number, number],
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -40,10 +40,10 @@ function setTextColor(doc: jsPDF, rgb: [number, number, number]) {
   doc.setTextColor(rgb[0], rgb[1], rgb[2]);
 }
 function bold(doc: jsPDF) {
-  doc.setFont("helvetica", "bold");
+  doc.setFont("times", "bold");
 }
 function normal(doc: jsPDF) {
-  doc.setFont("helvetica", "normal");
+  doc.setFont("times", "normal");
 }
 function size(doc: jsPDF, s: number) {
   doc.setFontSize(s);
@@ -97,54 +97,60 @@ const PAGE_H = 297;
 const MARGIN = 14;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
-function addPageHeader(doc: jsPDF, pageNum: number, totalPagesPlaceholder: string) {
-  // Top navy stripe
-  setFill(doc, C.navyDark);
-  doc.rect(0, 0, PAGE_W, 10, "F");
+function drawJudicialBorders(doc: jsPDF) {
+  doc.setLineWidth(0.8);
+  setDraw(doc, [0, 0, 0]);
+  doc.rect(8, 8, PAGE_W - 16, PAGE_H - 16, "S");
+  doc.setLineWidth(0.25);
+  doc.rect(9.5, 9.5, PAGE_W - 19, PAGE_H - 19, "S");
+}
 
-  // Title left
+function addPageHeader(doc: jsPDF, pageNum: number, totalPagesPlaceholder: string) {
+  drawJudicialBorders(doc);
+  setDraw(doc, [0, 0, 0]);
+  doc.setLineWidth(0.4);
+  doc.line(MARGIN, 10, PAGE_W - MARGIN, 10);
+  doc.setLineWidth(0.1);
+  doc.line(MARGIN, 10.8, PAGE_W - MARGIN, 10.8);
+
   bold(doc);
   size(doc, 7);
-  setTextColor(doc, [200, 210, 230]);
-  doc.text("TRACE – CRIMINAL INTELLIGENCE PLATFORM", MARGIN, 6.5);
+  setTextColor(doc, C.text);
+  doc.text("ANDHRA PRADESH STATE POLICE — PRAKASHAM DISTRICT CYBER CRIME CELL", MARGIN, 7.5);
 
-  // Page number right
   normal(doc);
   size(doc, 6.5);
-  setTextColor(doc, [150, 165, 185]);
-  doc.text(`Page ${pageNum} of ${totalPagesPlaceholder}`, PAGE_W - MARGIN, 6.5, { align: "right" });
-
-  // Thin amber accent
-  setFill(doc, [234, 179, 8]);
-  doc.rect(0, 10, PAGE_W, 0.5, "F");
+  setTextColor(doc, C.muted);
+  doc.text(`Page ${pageNum} of ${totalPagesPlaceholder}`, PAGE_W - MARGIN, 7.5, { align: "right" });
 }
 
 function addPageFooter(doc: jsPDF, officer: string, ref: string) {
-  const y = PAGE_H - 8;
-  setFill(doc, C.navyDark);
-  doc.rect(0, PAGE_H - 10, PAGE_W, 10, "F");
+  const y = PAGE_H - 12;
+  setDraw(doc, [0, 0, 0]);
+  doc.setLineWidth(0.4);
+  doc.line(MARGIN, PAGE_H - 16, PAGE_W - MARGIN, PAGE_H - 16);
+  doc.setLineWidth(0.1);
+  doc.line(MARGIN, PAGE_H - 15.2, PAGE_W - MARGIN, PAGE_H - 15.2);
 
   bold(doc);
-  size(doc, 6);
-  setTextColor(doc, [150, 165, 185]);
+  size(doc, 6.5);
+  setTextColor(doc, C.text);
   doc.text(`Prepared by: ${officer}`, MARGIN, y);
   normal(doc);
-  doc.text(`Ref: ${ref}`, PAGE_W / 2, y, { align: "center" });
-  doc.text("CONFIDENTIAL — LAW ENFORCEMENT USE ONLY", PAGE_W - MARGIN, y, { align: "right" });
+  doc.text(`Ref No: ${ref}`, PAGE_W / 2, y, { align: "center" });
+  doc.text("RESTRICTED — FOR LAW ENFORCEMENT & COURT USE ONLY", PAGE_W - MARGIN, y, { align: "right" });
 }
 
 function sectionHeading(doc: jsPDF, y: number, title: string): number {
-  setFill(doc, C.navy);
-  doc.rect(MARGIN, y, CONTENT_W, 7, "F");
   bold(doc);
-  size(doc, 8.5);
-  setTextColor(doc, C.white);
-  doc.text(title, MARGIN + 3, y + 4.8);
+  size(doc, 9);
+  setTextColor(doc, C.text);
+  doc.text(title.toUpperCase(), MARGIN, y + 4.8);
+  doc.setLineWidth(0.3);
+  doc.line(MARGIN, y + 6.5, PAGE_W - MARGIN, y + 6.5);
   normal(doc);
   return y + 10;
 }
-
-
 
 function drawMetricCard(
   doc: jsPDF,
@@ -155,21 +161,27 @@ function drawMetricCard(
   value: string,
   flag?: boolean
 ) {
-  setFill(doc, flag ? C.redLight : C.slateLight);
-  doc.roundedRect(x, y, w, 18, 1.5, 1.5, "F");
   if (flag) {
-    setDraw(doc, C.red);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(x, y, w, 18, 1.5, 1.5, "S");
+    setFill(doc, [242, 242, 242]); // neutral light grey background
+    doc.rect(x, y, w, 15, "F");
+    setDraw(doc, [0, 0, 0]); // black border
+    doc.setLineWidth(0.4);
+    doc.rect(x, y, w, 15, "S");
+  } else {
+    setFill(doc, [245, 245, 245]); // neutral light grey background
+    doc.rect(x, y, w, 15, "F");
+    setDraw(doc, C.border);
+    doc.setLineWidth(0.2);
+    doc.rect(x, y, w, 15, "S");
   }
   size(doc, 6.5);
   setTextColor(doc, C.muted);
   normal(doc);
-  doc.text(label.toUpperCase(), x + w / 2, y + 5.5, { align: "center" });
+  doc.text(label.toUpperCase(), x + w / 2, y + 4.5, { align: "center" });
   bold(doc);
-  size(doc, 11);
+  size(doc, 10);
   setTextColor(doc, flag ? C.red : C.text);
-  doc.text(value, x + w / 2, y + 13, { align: "center" });
+  doc.text(value, x + w / 2, y + 11.5, { align: "center" });
 }
 
 function drawTable(
@@ -181,21 +193,24 @@ function drawTable(
   startX = MARGIN,
   maxRows = 40
 ): number {
-  const rowH = 6.5;
-  const headerH = 8;
+  const rowH = 5.8; // tighter row height
+  const headerH = 7;
   const totalW = widths.reduce((a, b) => a + b, 0);
 
   // Header background
-  setFill(doc, C.navyLight);
+  setFill(doc, [241, 245, 249]); // light grey for headers
   doc.rect(startX, y, totalW, headerH, "F");
+  setDraw(doc, C.text);
+  doc.setLineWidth(0.4);
+  doc.rect(startX, y, totalW, headerH, "S"); // solid frame
 
   bold(doc);
   size(doc, 7);
-  setTextColor(doc, C.white);
+  setTextColor(doc, C.text);
 
   let xCursor = startX + 2;
   headers.forEach((h, i) => {
-    doc.text(h, xCursor, y + 5.5);
+    doc.text(h, xCursor, y + 5);
     xCursor += widths[i];
   });
 
@@ -208,22 +223,22 @@ function drawTable(
     doc.rect(startX, y, totalW, rowH, "F");
 
     normal(doc);
-    size(doc, 6.8);
+    size(doc, 6.5);
     setTextColor(doc, C.text);
 
     xCursor = startX + 2;
     row.forEach((cell, ci) => {
-      const cellText = String(cell ?? "—").substring(0, 40);
-      doc.text(cellText, xCursor, y + 4.5, {
+      const cellText = String(cell ?? "—").substring(0, 45);
+      doc.text(cellText, xCursor, y + 4, {
         maxWidth: widths[ci] - 3,
       });
       xCursor += widths[ci];
     });
 
-    // Row bottom border
+    // Row grid borders
     setDraw(doc, C.border);
-    doc.setLineWidth(0.1);
-    doc.line(startX, y + rowH, startX + totalW, y + rowH);
+    doc.setLineWidth(0.2);
+    doc.rect(startX, y, totalW, rowH, "S");
 
     y += rowH;
   });
@@ -240,7 +255,7 @@ function drawTable(
     y += 8;
   }
 
-  return y + 3;
+  return y + 2;
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -273,174 +288,169 @@ export function generatePdfReport(profile: any, caseName?: string): void {
   // ║  PAGE 1 – COVER PAGE                                    ║
   // ╚═══════════════════════════════════════════════════════════╝
 
-  // Full navy cover header
-  setFill(doc, C.navyDark);
-  doc.rect(0, 0, PAGE_W, 60, "F");
+  drawJudicialBorders(doc);
 
-  // Amber accent stripe
-  setFill(doc, [234, 179, 8]);
-  doc.rect(0, 60, PAGE_W, 1.5, "F");
+  // Center Government letterhead (black text, formal)
+  bold(doc);
+  size(doc, 8.5);
+  setTextColor(doc, C.text);
+  doc.text("GOVERNMENT OF ANDHRA PRADESH", PAGE_W / 2, 16, { align: "center" });
+  doc.text("ANDHRA PRADESH STATE POLICE DEPARTMENT", PAGE_W / 2, 21, { align: "center" });
+  size(doc, 7.5);
+  doc.text("CYBER CRIME CELL, DISTRICT POLICE HEADQUARTERS, ONGOLE", PAGE_W / 2, 26, { align: "center" });
 
-  // Government header text
+  // Pleading double rules
+  doc.setLineWidth(0.4);
+  doc.line(MARGIN, 31, PAGE_W - MARGIN, 31);
+  doc.setLineWidth(0.15);
+  doc.line(MARGIN, 32.2, PAGE_W - MARGIN, 32.2);
+
+  // Large formal report title
+  bold(doc);
+  size(doc, 14);
+  doc.text("CDR / IPDR FORENSIC ANALYSIS REPORT", PAGE_W / 2, 42, { align: "center" });
+  size(doc, 8.5);
+  normal(doc);
+  doc.text("INVESTIGATION LOG & CELL SITE ANALYSIS BRIEF FOR JUDICIAL SUBMISSION", PAGE_W / 2, 48, { align: "center" });
   bold(doc);
   size(doc, 7);
-  setTextColor(doc, [200, 210, 230]);
-  doc.text("GOVERNMENT OF ANDHRA PRADESH", PAGE_W / 2, 10, { align: "center" });
-  doc.text("ANDHRA PRADESH STATE POLICE — CYBERCRIME & CDR ANALYSIS DIVISION", PAGE_W / 2, 15, {
-    align: "center",
-  });
+  doc.text(`CONFIDENTIAL  |  REPORT REF NO: ${reportRef}`, PAGE_W / 2, 54, { align: "center" });
 
-  // Main title
-  bold(doc);
-  size(doc, 22);
-  setTextColor(doc, C.white);
-  doc.text("CDR / IPDR ANALYSIS REPORT", PAGE_W / 2, 32, { align: "center" });
-
-  size(doc, 11);
-  setTextColor(doc, [234, 179, 8]);
-  doc.text("Criminal Intelligence — Call Detail Record Examination", PAGE_W / 2, 40, {
-    align: "center",
-  });
-
-  size(doc, 7.5);
-  setTextColor(doc, [150, 165, 185]);
-  normal(doc);
-  doc.text(
-    "Generated under Section 65B of the Indian Evidence Act, 1872",
-    PAGE_W / 2,
-    48,
-    { align: "center" }
-  );
-  doc.text(`Report Reference: ${reportRef}`, PAGE_W / 2, 54, { align: "center" });
+  // Divider line
+  doc.setLineWidth(0.25);
+  doc.line(MARGIN, 58, PAGE_W - MARGIN, 58);
 
   // — Subject block —
-  let y = 72;
-  setFill(doc, C.slateLight);
-  doc.roundedRect(MARGIN, y, CONTENT_W, 52, 2, 2, "F");
-  setDraw(doc, C.border);
+  let y = 63;
+  setFill(doc, [248, 250, 252]); // very light slate grey fill
+  doc.rect(MARGIN, y, CONTENT_W, 51, "F");
+  setDraw(doc, [0, 0, 0]);
   doc.setLineWidth(0.3);
-  doc.roundedRect(MARGIN, y, CONTENT_W, 52, 2, 2, "S");
+  doc.rect(MARGIN, y, CONTENT_W, 51, "S");
 
   bold(doc);
   size(doc, 8);
-  setTextColor(doc, C.muted);
-  doc.text("SUBJECT OF ANALYSIS", MARGIN + 4, y + 6);
+  setTextColor(doc, C.text);
+  doc.text("I. SUBJECT DETAILS & METADATA", MARGIN + 4, y + 6);
 
-  // Divider line
+  // Divider line inside subject block
   doc.setLineWidth(0.2);
   doc.line(MARGIN + 4, y + 8, MARGIN + CONTENT_W - 4, y + 8);
 
   const subjFields: [string, string][] = [
-    ["Name / Label:", suspect.label ?? "Unknown"],
-    ["Primary MSISDN:", suspect.primary_msisdn ?? "—"],
-    ["Case Name:", caseName ?? "—"],
-    ["Anomaly Score:", cdr?.anomaly_score != null ? String(cdr.anomaly_score) : "N/A"],
-    ["Total Events:", String(events.length)],
-    ["Report Generated:", generatedAt + " IST"],
+    ["Accused / Suspect Label:", suspect.label ?? "Unknown"],
+    ["Primary MSISDN (Phone):", suspect.primary_msisdn ?? "—"],
+    ["Registered Case Name:", caseName ?? "—"],
+    ["Computed Anomaly Score:", cdr?.anomaly_score != null ? `${String((cdr.anomaly_score).toFixed(3))}` : "N/A"],
+    ["Total Logs Audited:", `${events.length} flagged events`],
+    ["Report Generation Date:", generatedAt + " IST"],
   ];
 
   let ry = y + 13;
   subjFields.forEach(([lbl, val]) => {
     bold(doc);
-    size(doc, 7.5);
-    setTextColor(doc, C.slate);
+    size(doc, 7);
+    setTextColor(doc, C.text);
     doc.text(lbl, MARGIN + 4, ry);
     normal(doc);
-    setTextColor(doc, C.text);
-    size(doc, 8);
-    doc.text(val, MARGIN + 40, ry);
-    ry += 7;
+    size(doc, 7.5);
+    doc.text(val, MARGIN + 45, ry);
+    ry += 6.5;
   });
 
-  // — Risk flags —
-  y = 132;
+  // — Evasive alerts —
+  y = 120;
   const highEvents = events.filter((e) => e.severity === "HIGH");
 
-
   if (highEvents.length > 0) {
-    setFill(doc, C.redLight);
-    doc.roundedRect(MARGIN, y, CONTENT_W, 22, 2, 2, "F");
-    setDraw(doc, C.red);
+    setFill(doc, [242, 242, 242]); // light grey fill
+    doc.rect(MARGIN, y, CONTENT_W, 23, "F");
+    setDraw(doc, [0, 0, 0]);
     doc.setLineWidth(0.4);
-    doc.roundedRect(MARGIN, y, CONTENT_W, 22, 2, 2, "S");
+    doc.rect(MARGIN, y, CONTENT_W, 23, "S");
 
     bold(doc);
     size(doc, 8);
-    setTextColor(doc, C.red);
-    doc.text("⚠  HIGH-RISK FLAGS DETECTED", MARGIN + 4, y + 7);
+    setTextColor(doc, C.text);
+    doc.text("II. DETECTED EVASIVE ALERTS SUMMARY (HIGH SEVERITY)", MARGIN + 4, y + 6);
     normal(doc);
-    size(doc, 7);
-    setTextColor(doc, [153, 27, 27]);
+    size(doc, 6.8);
+    setTextColor(doc, [30, 30, 30]);
 
     const flagTexts = highEvents
-      .slice(0, 4)
-      .map((e) => `• ${e.event_type.replace(/_/g, " ")} — ${eventSummary(e)}`);
-    doc.text(flagTexts.join("\n"), MARGIN + 4, y + 13, { maxWidth: CONTENT_W - 8 });
-    y += 28;
+      .slice(0, 3)
+      .map((e) => `• ${e.event_type.replace(/_/g, " ")}: ${eventSummary(e)}`);
+    doc.text(flagTexts.join("\n"), MARGIN + 4, y + 11.5, { maxWidth: CONTENT_W - 8 });
+    y += 29;
   } else {
-    setFill(doc, C.greenLight);
-    doc.roundedRect(MARGIN, y, CONTENT_W, 14, 2, 2, "F");
+    setFill(doc, [250, 250, 250]); // light grey fill
+    doc.rect(MARGIN, y, CONTENT_W, 12, "F");
+    setDraw(doc, [150, 150, 150]);
+    doc.setLineWidth(0.4);
+    doc.rect(MARGIN, y, CONTENT_W, 12, "S");
     bold(doc);
-    size(doc, 8);
-    setTextColor(doc, C.green);
-    doc.text("✓  No high-severity events detected in this analysis window.", MARGIN + 4, y + 8);
-    y += 20;
+    size(doc, 7.5);
+    setTextColor(doc, C.text);
+    doc.text("✓  No high-severity evasive indicators detected in the analysis window.", MARGIN + 4, y + 7.5);
+    y += 18;
   }
 
   // — Section 65B notice —
-  y = Math.max(y + 4, 170);
-  setFill(doc, [248, 250, 252]);
-  doc.roundedRect(MARGIN, y, CONTENT_W, 50, 2, 2, "F");
-  setDraw(doc, C.border);
-  doc.roundedRect(MARGIN, y, CONTENT_W, 50, 2, 2, "S");
+  y = Math.max(y + 2, 160);
+  setFill(doc, [255, 255, 255]); // clean white
+  doc.rect(MARGIN, y, CONTENT_W, 48, "F");
+  setDraw(doc, [0, 0, 0]);
+  doc.setLineWidth(0.3);
+  doc.rect(MARGIN, y, CONTENT_W, 48, "S");
 
   bold(doc);
   size(doc, 8);
-  setTextColor(doc, C.navy);
-  doc.text("SECTION 65B CERTIFICATE — ELECTRONIC EVIDENCE", MARGIN + 4, y + 7);
+  setTextColor(doc, C.text);
+  doc.text("III. COMPLIANCE CERTIFICATE UNDER SECTION 65B", MARGIN + 4, y + 6);
+  doc.setLineWidth(0.2);
+  doc.line(MARGIN + 4, y + 8, MARGIN + CONTENT_W - 4, y + 8);
 
   normal(doc);
-  size(doc, 7);
+  size(doc, 6.8);
   setTextColor(doc, C.slate);
   const certText =
-    "I, the authorised officer of TRACE – Criminal Intelligence Platform, do hereby certify that the " +
-    "computer-generated Call Detail Records (CDR) and Internet Protocol Detail Records (IPDR) forming " +
-    "the basis of this report were produced by a computer system that was in regular use during the " +
-    "period in question, was functioning properly, and was not subject to any failure or irregularity " +
-    "that could affect the accuracy of the data. This certificate is issued under Section 65B(4) of " +
-    "the Indian Evidence Act, 1872 and the relevant provisions of the Information Technology Act, 2000.";
+    "Pursuant to the provisions of Section 65B of the Indian Evidence Act, 1872 (as amended), it is certified that " +
+    "the electronic records, including CDR and IPDR details contained in this report, were generated automatically by " +
+    "the computer systems of the respective telecom operators. These records were obtained in the ordinary course of " +
+    "investigative operations, and the systems were operating in normal functional status during the period. The hash " +
+    "integrity of the digital records has been verified to ensure no alteration has occurred since extraction.";
   const certLines = doc.splitTextToSize(certText, CONTENT_W - 8);
-  doc.text(certLines, MARGIN + 4, y + 14);
+  doc.text(certLines, MARGIN + 4, y + 13.5);
 
   // Signature block with bounding boxes
   y = PAGE_H - 42;
   const sigW = (CONTENT_W - 8) / 2;
-  setDraw(doc, C.slate);
+  setDraw(doc, [0, 0, 0]);
   doc.setLineWidth(0.35);
 
   // Left Box: Investigating Officer
-  doc.roundedRect(MARGIN, y, sigW, 28, 1.5, 1.5, "S");
+  doc.rect(MARGIN, y, sigW, 25, "S");
   bold(doc);
-  size(doc, 7.5);
-  setTextColor(doc, C.navy);
-  doc.text("INVESTIGATING OFFICER", MARGIN + 4, y + 6);
+  size(doc, 7);
+  setTextColor(doc, C.text);
+  doc.text("INVESTIGATING OFFICER STAMP & SIGNATURE", MARGIN + 4, y + 6);
   normal(doc);
   size(doc, 6.5);
   setTextColor(doc, C.muted);
   doc.text("Signature: __________________________", MARGIN + 4, y + 14);
-  doc.text("Name & Rank: ________________________", MARGIN + 4, y + 21);
+  doc.text("Name & Rank: ________________________", MARGIN + 4, y + 20);
 
   // Right Box: Verifying Authority
-  doc.roundedRect(MARGIN + sigW + 8, y, sigW, 28, 1.5, 1.5, "S");
+  doc.rect(MARGIN + sigW + 8, y, sigW, 25, "S");
   bold(doc);
-  size(doc, 7.5);
-  setTextColor(doc, C.navy);
-  doc.text("VERIFYING AUTHORITY / DSP", MARGIN + sigW + 12, y + 6);
+  size(doc, 7);
+  setTextColor(doc, C.text);
+  doc.text("VERIFYING OFFICER STAMP & SIGNATURE", MARGIN + sigW + 12, y + 6);
   normal(doc);
   size(doc, 6.5);
   setTextColor(doc, C.muted);
   doc.text("Signature: __________________________", MARGIN + sigW + 12, y + 14);
-  doc.text("Date & Seal: ________________________", MARGIN + sigW + 12, y + 21);
+  doc.text("Date & Designation: __________________", MARGIN + sigW + 12, y + 20);
 
   addPageFooter(doc, officerName, reportRef);
 
@@ -486,7 +496,7 @@ export function generatePdfReport(profile: any, caseName?: string): void {
     // Flags
     if (nightFlag || burstFlag) {
       setFill(doc, C.amberLight);
-      doc.roundedRect(MARGIN, y, CONTENT_W, 10, 1.5, 1.5, "F");
+      doc.rect(MARGIN, y, CONTENT_W, 10, "F");
       bold(doc);
       size(doc, 7.5);
       setTextColor(doc, C.amber);
@@ -611,10 +621,10 @@ export function generatePdfReport(profile: any, caseName?: string): void {
       highEvs.forEach((ev) => {
         if (y > PAGE_H - 35) return;
         setFill(doc, C.redLight);
-        doc.roundedRect(MARGIN, y, CONTENT_W, 16, 1.5, 1.5, "F");
+        doc.rect(MARGIN, y, CONTENT_W, 16, "F");
         setDraw(doc, C.red);
         doc.setLineWidth(0.2);
-        doc.roundedRect(MARGIN, y, CONTENT_W, 16, 1.5, 1.5, "S");
+        doc.rect(MARGIN, y, CONTENT_W, 16, "S");
 
         bold(doc);
         size(doc, 7.5);
@@ -651,7 +661,7 @@ export function generatePdfReport(profile: any, caseName?: string): void {
     const coLocCount = movement.filter((m) => m.co_location).length;
     if (coLocCount > 0) {
       setFill(doc, C.redLight);
-      doc.roundedRect(MARGIN, y, CONTENT_W, 10, 1.5, 1.5, "F");
+      doc.rect(MARGIN, y, CONTENT_W, 10, "F");
       bold(doc);
       size(doc, 7.5);
       setTextColor(doc, C.red);
@@ -691,7 +701,7 @@ export function generatePdfReport(profile: any, caseName?: string): void {
       silenceEvs.forEach((ev) => {
         if (y > PAGE_H - 30) return;
         setFill(doc, C.amberLight);
-        doc.roundedRect(MARGIN, y, CONTENT_W, 14, 1.5, 1.5, "F");
+        doc.rect(MARGIN, y, CONTENT_W, 14, "F");
         bold(doc);
         size(doc, 7.5);
         setTextColor(doc, C.amber);
@@ -728,10 +738,10 @@ export function generatePdfReport(profile: any, caseName?: string): void {
       burnerEvs.forEach((ev) => {
         if (y > PAGE_H - 30) return;
         setFill(doc, C.redLight);
-        doc.roundedRect(MARGIN, y, CONTENT_W, 20, 1.5, 1.5, "F");
+        doc.rect(MARGIN, y, CONTENT_W, 20, "F");
         setDraw(doc, C.red);
         doc.setLineWidth(0.25);
-        doc.roundedRect(MARGIN, y, CONTENT_W, 20, 1.5, 1.5, "S");
+        doc.rect(MARGIN, y, CONTENT_W, 20, "S");
 
         bold(doc);
         size(doc, 8);
@@ -763,7 +773,7 @@ export function generatePdfReport(profile: any, caseName?: string): void {
       crossCaseEvs.forEach((ev) => {
         if (y > PAGE_H - 30) return;
         setFill(doc, C.redLight);
-        doc.roundedRect(MARGIN, y, CONTENT_W, 18, 1.5, 1.5, "F");
+        doc.rect(MARGIN, y, CONTENT_W, 18, "F");
         bold(doc);
         size(doc, 7.5);
         setTextColor(doc, C.red);
@@ -785,7 +795,7 @@ export function generatePdfReport(profile: any, caseName?: string): void {
       loopEvs.forEach((ev) => {
         if (y > PAGE_H - 25) return;
         setFill(doc, C.redLight);
-        doc.roundedRect(MARGIN, y, CONTENT_W, 16, 1.5, 1.5, "F");
+        doc.rect(MARGIN, y, CONTENT_W, 16, "F");
         bold(doc);
         size(doc, 7.5);
         setTextColor(doc, C.red);
@@ -863,7 +873,7 @@ export function generatePdfReport(profile: any, caseName?: string): void {
     setFill(doc, C.slateLight);
     const lines = doc.splitTextToSize(`${i + 1}. ${rec}`, CONTENT_W - 8);
     const boxH = lines.length * 5 + 6;
-    doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 1.5, 1.5, "F");
+    doc.rect(MARGIN, y, CONTENT_W, boxH, "F");
     normal(doc);
     size(doc, 7.5);
     setTextColor(doc, C.text);
@@ -903,7 +913,7 @@ export function generatePdfReport(profile: any, caseName?: string): void {
   doc.setLineWidth(0.35);
 
   // Card 1: Investigating Officer
-  doc.roundedRect(MARGIN, y, finalSigW, 28, 1.5, 1.5, "S");
+  doc.rect(MARGIN, y, finalSigW, 28, "S");
   bold(doc);
   size(doc, 7);
   setTextColor(doc, C.navy);
@@ -915,7 +925,7 @@ export function generatePdfReport(profile: any, caseName?: string): void {
   doc.text("Name & Rank: _______________", MARGIN + 4, y + 21);
 
   // Card 2: Supervisory Officer
-  doc.roundedRect(MARGIN + finalSigW + 4, y, finalSigW, 28, 1.5, 1.5, "S");
+  doc.rect(MARGIN + finalSigW + 4, y, finalSigW, 28, "S");
   bold(doc);
   size(doc, 7);
   setTextColor(doc, C.navy);
@@ -927,7 +937,7 @@ export function generatePdfReport(profile: any, caseName?: string): void {
   doc.text("Date & Seal: _______________", MARGIN + finalSigW + 8, y + 21);
 
   // Card 3: Court Submission Officer
-  doc.roundedRect(MARGIN + (finalSigW + 4) * 2, y, finalSigW, 28, 1.5, 1.5, "S");
+  doc.rect(MARGIN + (finalSigW + 4) * 2, y, finalSigW, 28, "S");
   bold(doc);
   size(doc, 7);
   setTextColor(doc, C.navy);

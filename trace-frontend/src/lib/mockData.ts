@@ -3,32 +3,11 @@
 
 export const mockCases = [
   {
-    "id": "594703e8-5526-41c1-a1ec-e370d5cb5f57",
-    "name": "Operation Sandstorm TEST",
-    "created_at": "2026-06-21T12:59:36.202165",
+    "id": "af9ce73d-b272-4aab-afe6-0c9786dc1bb6",
+    "name": "Ongole Tobacco Smuggling Syndicate (FIR 124/2026)",
+    "created_at": "2026-06-21T08:33:18.633628",
     "suspect_count": 5,
-    "event_count": 26
-  },
-  {
-    "id": "6ddc0383-51d4-4700-987f-72fa75d47891",
-    "name": "Operation Sandstorm TEST",
-    "created_at": "2026-06-21T09:30:05.575908",
-    "suspect_count": 5,
-    "event_count": 26
-  },
-  {
-    "id": "56941c23-39df-451e-a7e1-b8d5e896255a",
-    "name": "Operation Sandstorm TEST",
-    "created_at": "2026-06-21T08:39:22.858323",
-    "suspect_count": 5,
-    "event_count": 26
-  },
-  {
-    "id": "1b40f22f-0713-4c3f-9072-8c4ff4e75e3f",
-    "name": "Visakhapatnam Port Contraband Ring (FIR 201/2026)",
-    "created_at": "2026-06-21T08:33:19.130509",
-    "suspect_count": 3,
-    "event_count": 15
+    "event_count": 17
   },
   {
     "id": "3b631ad7-6bfe-4435-87ff-a8542309c278",
@@ -38,11 +17,11 @@ export const mockCases = [
     "event_count": 17
   },
   {
-    "id": "af9ce73d-b272-4aab-afe6-0c9786dc1bb6",
-    "name": "Ongole Tobacco Smuggling Syndicate (FIR 124/2026)",
-    "created_at": "2026-06-21T08:33:18.633628",
-    "suspect_count": 5,
-    "event_count": 17
+    "id": "1b40f22f-0713-4c3f-9072-8c4ff4e75e3f",
+    "name": "Visakhapatnam Port Contraband Ring (FIR 201/2026)",
+    "created_at": "2026-06-21T08:33:19.130509",
+    "suspect_count": 3,
+    "event_count": 15
   }
 ];
 
