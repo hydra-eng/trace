@@ -40,13 +40,16 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 
 | # | Capability | What the Investigator Sees |
 |:--|:-----------|:--------------------------|
-| 1 | **Zero-Config Data Ingestion** | Upload raw CSVs from BSNL, Jio, Airtel, or Vi — TRACE maps the columns automatically |
+| 1 | **Zero-Config Data Ingestion** | Upload raw CSVs from BSNL, Jio, Airtel, or Vi — TRACE maps columns automatically |
 | 2 | **IMEI Swap Detection** | Exact time, date, and cell tower where a suspect switched to a new handset |
-| 3 | **Co-Location Detection** | When two or more suspects were at the same cell tower within a configurable time window |
-| 4 | **Criminal Network Graph** | Visual map of who called whom — suspects, handlers, and shared contacts |
-| 5 | **OTT App Fingerprinting** | WhatsApp, Telegram, and Signal usage detected from IPDR data patterns |
-| 6 | **AI Anomaly Scoring** | A 0–100 risk score per suspect with a point-by-point breakdown |
-| 7 | **Court-Ready PDF Reports** | Tamper-proof PDF with SHA-256 file hash — Section 65B IE Act compliant |
+| 3 | **Handset Burner Detection** | Tracks when the same IMEI/handset is used with multiple SIM cards ( burner tracking) |
+| 4 | **Co-Location Detection** | Overlaps suspect cell tower logs to find meetings within a configurable time buffer |
+| 5 | **Cross-Case Handler Matcher** | Performs global linkage analysis to find common coordinators/handlers across distinct cases |
+| 6 | **Tower Switch-Off / Last-Seen** | Automatically flags radio-silence gaps (e.g. >6h) and records coordinates before switch-off |
+| 7 | **Night-Call & Loop-Call Aggregation** | Detects repetitive loop coordination call pairs and high-ratio nocturnal bursts (23:00–05:00) |
+| 8 | **Radial Search & Buffer Zones** | Maps crime scene lat/lon and returns all suspects present within a configurable radius |
+| 9 | **Auto-Populated Sec 65B Certificate** | Pre-fills and generates Indian Evidence Act Sec 65B electronic record authenticity certificates |
+| 10 | **Activity Audit Trail** | Pages recording officer actions, timestamps, and terminal IP coordinates for chain-of-custody |
 
 ---
 
@@ -55,12 +58,12 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 | Area | Legacy Methods | TRACE |
 |:-----|:---------------|:------|
 | **Data Ingestion** | Fails if operator headers change even slightly | Auto-detects and maps native headers from all operators |
-| **Device Evasion** | Spotted only by manually scanning thousands of rows | Automatically flags IMEI swaps with timestamp and tower |
-| **Suspect Meetings** | Manual cross-referencing of timestamps in Excel | Geospatial engine detects co-location within minutes |
-| **Relationships** | Investigators mentally map who knows whom | Interactive network graph built from actual call data |
-| **Encrypted Apps** | Completely invisible to investigators | Detected via IPDR session patterns (size, timing, endpoints) |
-| **AI Scoring** | Static risk categories with no explanation | Explainable score: each point justified with call evidence |
-| **Evidence** | Manual screenshots pasted into Word documents | PDF with embedded SHA-256 hash for Chain of Custody |
+| **Device Evasion** | Spotted only by manually scanning thousands of rows | Automatically flags IMEI swaps and multi-SIM burner handsets |
+| **Suspect Meetings** | Manual cross-referencing of timestamps in Excel | Geospatial engine detects co-locations and radial scene buffer hits |
+| **Relationships** | Investigators mentally map who knows whom | Interactive network graph + global linkage cross-case matching |
+| **Nocturnal/Urgent Calls** | Hard to isolate repeating call loops visually | Automatic aggregation of night bursts and rapid loop call alerts |
+| **Evidence Compliance** | Manual screenshots pasted into Word documents | Official court-ready PDF with auto-filled Section 65B Certificates |
+| **Activity Logging** | Excel files shared without logging modification trails | Tamper-proof, case-specific activity audit logs tracking officer IPs |
 | **Deployment** | Expensive servers or cloud subscriptions | One command on any workstation — fully offline |
 
 ---
@@ -138,64 +141,82 @@ graph TD
     B --> C[("Case Database\nSQLite / PostgreSQL")]
     C --> D["TRACE Analytics Engine"]
 
-    subgraph D ["5-Layer Analytics Engine"]
+    subgraph D ["TRACE Analytics Suite"]
         D1["1. IMEI Swap Detector"]
-        D2["2. Co-Location Engine"]
-        D3["3. Network Graph Builder"]
-        D4["4. AI Anomaly Scorer"]
-        D5["5. OTT Fingerprinting"]
+        D2["2. Handset Burner Tracker"]
+        D3["3. Co-Location Engine"]
+        D4["4. Network Graph Builder"]
+        D5["5. Cross-Case Linkage"]
+        D6["6. Tower Silence Analysis"]
+        D7["7. Night / Loop Burst Engine"]
+        D8["8. Radial Search Buffer Engine"]
+        D9["9. AI Anomaly Scorer"]
+        D10["10. OTT App Fingerprinting"]
+        D11["11. Activity Audit Logger"]
     end
 
     D --> E["React Frontend\nInteractive Web UI"]
     D --> F["PDF Report Generator\nChain of Custody"]
 
-    E --> E1["Cell Tower Map (MapLibre/DeckGL)"]
+    E --> E1["Geospatial Map (MapLibre/DeckGL)"]
     E --> E2["Network Graph (React Flow)"]
-    E --> E3["7×24 Call Heatmap"]
+    E --> E3["Radial Search & Audit Views"]
 
     F --> F1["Court Brief PDF (ReportLab)"]
-    F --> F2["SHA-256 Evidence Hash"]
+    F --> F2["Section 65B Compliance Certificate"]
+    F --> F3["SHA-256 Evidence Hash"]
 ```
 
 ---
 
 ## How the Analytics Works
 
-### 1. IMEI Swap Detection
+### 1. IMEI Swap & Burner Handset Detection
 
-Every CDR row has a phone number (MSISDN) and a handset ID (IMEI). TRACE sorts all records by time and flags any row where the IMEI changes — capturing exactly when and where the suspect switched devices.
-
-```
-CDR Row 1: MSISDN 9912345678 | IMEI: 354812XXXXXX | Tower: Chirala North | 01-Jun 10:32
-CDR Row 2: MSISDN 9912345678 | IMEI: 490512XXXXXX | Tower: Chirala North | 03-Jun 14:07
-                                       ↑ DIFFERENT — IMEI SWAP FLAGGED ↑
-```
+Every CDR row has a phone number (MSISDN) and a handset ID (IMEI). 
+* **IMEI Swap:** TRACE sorts records by time per MSISDN and flags any row where the IMEI changes, capturing when and where device evasion took place.
+* **Burner Handset:** The system scans all records globally and flags when a single IMEI appears with multiple distinct phone numbers — a key signature of burner/shared handsets.
 
 ---
 
-### 2. Co-Location Detection
+### 2. Co-Location & Radial Buffer Searching
 
-TRACE compares the call records of all suspects in a case. When two or more suspects connect to the same cell tower within a configurable time window (default: 30 minutes), a meeting event is recorded.
-
-```
-Suspect A → Tower: Chirala_Town_BTS01 → 02-Jun 15:00
-Suspect B → Tower: Chirala_Town_BTS01 → 02-Jun 15:15
-                    Same tower, 15 minutes apart → MEETING DETECTED
-```
+* **Co-Location:** TRACE compares suspect CDRs to identify when multiple suspects were registered at the same cell tower within a tight time window (e.g. 30 minutes), flagging physical meetings.
+* **Radial Buffer Search:** Investigators can input a crime scene's coordinate (lat/lon) and a radius (in km), and the system uses the Haversine formula to return all suspects registered within that buffer zone.
 
 ---
 
-### 3. AI Anomaly Scoring
+### 3. Loop-Call & Night Burst Aggregation
 
-Each suspect receives a 0–100 risk score based on five behavioural signals:
+TRACE aggregates call frequencies to flag network coordination:
+* **Night-Call Burst:** Flags suspects making 5+ calls between 23:00 and 05:00 on a single day.
+* **Loop-Call:** Flags rapid call cycles where the same A→B pair calls each other 3+ times within 30 minutes (urgent communication patterns).
 
-| Signal | What it Detects |
+---
+
+### 4. Cross-Case Global Handler Matching
+
+Compares contacts globally across *all* active cases in the database. If a non-suspect contact number appears in the logs of suspects in two or more distinct cases, it is flagged as a high-risk global coordinator/handler.
+
+---
+
+### 5. Tower Switch-Off & Silence Tracking
+
+Flags when a suspect's phone goes completely dark (no CDR pings) for a period exceeding 6 hours. It isolates the exact time and cell tower coordinates of the last ping before switch-off and the first ping when re-established.
+
+---
+
+### 6. Explainable AI Anomaly Scoring
+
+Each suspect receives a 0–100 risk score based on weighted behavioural signals:
+
+| Signal | Metric Checked |
 |:-------|:----------------|
-| Night Calls (23:00–05:00) | Unusual communication hours |
-| Silence Gaps (>24 hrs) | Deliberate blackout periods |
-| IMEI Swap Count | Device evasion attempts |
-| Co-Location Events | Physical meetings with other suspects |
-| OTT App Volume Spikes | Encrypted communication bursts |
+| Night Calls Ratio | Percentage of nocturnal communication |
+| Tower Silence Gaps | Number of switch-off windows |
+| IMEI Swap Count | Handset evasion cycles |
+| Co-Locations | Physical meetings with other suspects |
+| OTT App Usage | Volume spikes on encrypted services |
 
 **Risk Bands:**
 

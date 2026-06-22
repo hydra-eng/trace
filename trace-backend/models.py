@@ -105,3 +105,24 @@ class Event(Base):
     occurred_at = Column(DateTime)
 
     case = relationship("Case", back_populates="events")
+
+
+# ── Audit Log ──────────────────────────────────────────────────────────────────
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    # Action type: ANALYSIS_RUN, REPORT_GENERATED, SUSPECT_ADDED,
+    #              SUSPECT_DELETED, CASE_CREATED, CDR_UPLOADED, IPDR_UPLOADED
+    action_type = Column(Text, nullable=False)
+    # Entity: Case, Suspect, Report
+    entity_type = Column(Text, nullable=False)
+    entity_id = Column(Text, nullable=True)
+    entity_label = Column(Text, nullable=True)   # human-readable name
+    # Officer / Session info
+    officer_ip = Column(Text, nullable=True)
+    officer_host = Column(Text, nullable=True)
+    # Structured extra detail
+    detail = Column(JSONColumn, nullable=True, default=dict)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)

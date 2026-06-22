@@ -4,7 +4,7 @@ import CasesPage from "./pages/CasesPage";
 import CaseDetailPage from "./pages/CaseDetailPage";
 import UploadPage from "./pages/UploadPage";
 import SuspectProfilePage from "./pages/SuspectProfilePage";
-import { DashboardPage, SuspectsPage, ReportsPage, SettingsPage } from "./pages/ExtraPages";
+import { DashboardPage, SuspectsPage, ReportsPage, SettingsPage, GeoIntelPage, AuditTrailPage } from "./pages/ExtraPages";
 import { api } from "./lib/api";
 import type { CaseOut } from "./lib/types";
 import {
@@ -17,6 +17,8 @@ import {
   ChevronRight,
   ShieldAlert,
   Loader2,
+  MapPin,
+  Shield,
 } from "lucide-react";
 
 function TraceBootScreen({ onComplete }: { onComplete: () => void }) {
@@ -327,6 +329,8 @@ function IconRail({
     { label: "Cases", path: "/cases", icon: FolderOpen },
     { label: "Suspects", path: "/suspects", icon: Users },
     { label: "Reports", path: "/reports", icon: FileText },
+    { label: "Geo Intel", path: "/geo-intel", icon: MapPin },
+    { label: "Audit Trail", path: "/audit", icon: Shield },
     { label: "Settings", path: "/settings", icon: Settings },
   ];
 
@@ -524,6 +528,8 @@ export default function App() {
                     <Route path="/suspects" element={<SuspectsPage />} />
                     <Route path="/reports" element={<ReportsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/geo-intel" element={<GeoIntelPage />} />
+                    <Route path="/audit" element={<AuditTrailPage />} />
                   </Routes>
                 </div>
               </div>

@@ -70,3 +70,64 @@ def detect_imei_swaps(suspect_id: str, db: Session) -> List[Event]:
                               [(s, next(r.timestamp for r in recs if r.imei == s)) for s in seen_imeis]]
 
     return events
+
+
+def detect_multi_sim_imei(case_id: str, db: Session) -> List[Event]:
+    """
+    Scans all CDR records in a case and finds any IMEI that appears with
+    2+ distinct MSISDNs. These handsets are likely shared/burner phones.
+    Emits one MULTI_SIM_IMEI event per offending IMEI.
+    """
+    from collections import defaultdict
+    from models import Suspect
+
+    suspects = db.query(Suspect).filter(Suspect.case_id == case_id).all()
+
+    # imei -> { msisdn -> set(suspect_labels) }
+    imei_to_msisdns: dict = defaultdict(lambda: defaultdict(set))
+    imei_to_timestamps: dict = defaultdict(list)
+
+    for suspect in suspects:
+        records = (
+            db.query(CDRRecord)
+            .filter(CDRRecord.suspect_id == suspect.id, CDRRecord.imei.isnot(None))
+            .all()
+        )
+        for rec in records:
+            imei = rec.imei.strip()
+            if not imei:
+                continue
+            imei_to_msisdns[imei][rec.msisdn_a].add(suspect.label)
+            imei_to_timestamps[imei].append(rec.timestamp)
+
+    events: List[Event] = []
+    for imei, msisdn_dict in imei_to_msisdns.items():
+        if len(msisdn_dict) < 2:
+            continue
+
+        involved: set = set()
+        for labels in msisdn_dict.values():
+            involved.update(labels)
+
+        timestamps = sorted(imei_to_timestamps[imei])
+        first_seen = timestamps[0] if timestamps else datetime.utcnow()
+        last_seen = timestamps[-1] if timestamps else datetime.utcnow()
+
+        events.append(Event(
+            id=str(uuid.uuid4()),
+            case_id=case_id,
+            event_type="MULTI_SIM_IMEI",
+            severity="HIGH",
+            involved_suspects=sorted(list(involved)),
+            detail={
+                "imei": imei,
+                "msisdns": list(msisdn_dict.keys()),
+                "sim_count": len(msisdn_dict),
+                "first_seen": first_seen.isoformat(),
+                "last_seen": last_seen.isoformat(),
+                "note": "Same handset (IMEI) detected with multiple SIM cards — probable burner phone",
+            },
+            occurred_at=last_seen,
+        ))
+
+    return events

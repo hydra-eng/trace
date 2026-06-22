@@ -39,6 +39,11 @@ function eventSummary(ev: { event_type: string; detail: Record<string, unknown> 
   if (ev.event_type === "COMMON_CONTACT") return `Shared: ${d.common_number}`;
   if (ev.event_type === "ANOMALY") return `Score: ${Number(d.anomaly_score).toFixed(3)}`;
   if (ev.event_type === "OTT_USAGE") return `${d.app}`;
+  if (ev.event_type === "MULTI_SIM_IMEI") return `Burner Handset (IMEI: ${d.imei}) used with ${d.sim_count} SIMs`;
+  if (ev.event_type === "CROSS_CASE_HANDLER") return `Global linkage: contact ${d.handler_number} appears in ${d.case_count} cases`;
+  if (ev.event_type === "TOWER_SILENCE") return `Radio-silent for ${d.gap_hours} hrs. Last seen tower: ${d.last_seen_tower}`;
+  if (ev.event_type === "NIGHT_CALL_BURST") return `Nocturnal burst: ${d.call_count} calls on ${d.night_date}`;
+  if (ev.event_type === "LOOP_CALL") return `Urgent loop coordination: ${d.call_count_in_window} calls in ${d.window_minutes} mins`;
   return "—";
 }
 
@@ -103,6 +108,13 @@ export default function SuspectProfilePage() {
 
   const hasAnomaly = events.some((e) => e.event_type === "ANOMALY");
   const hasImeiSwap = events.some((e) => e.event_type === "IMEI_SWAP");
+  const hasMultiSimImei = events.some((e) => e.event_type === "MULTI_SIM_IMEI");
+  const hasCrossCaseHandler = events.some((e) => e.event_type === "CROSS_CASE_HANDLER");
+  const hasTowerSilence = events.some((e) => e.event_type === "TOWER_SILENCE");
+  const hasLoopCall = events.some((e) => e.event_type === "LOOP_CALL");
+  const hasNightCallBurst = events.some((e) => e.event_type === "NIGHT_CALL_BURST");
+
+  const hasAnyRisk = hasAnomaly || hasImeiSwap || hasMultiSimImei || hasCrossCaseHandler || hasTowerSilence || hasLoopCall || hasNightCallBurst;
 
   const handleDownloadReport = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -144,28 +156,56 @@ export default function SuspectProfilePage() {
       </div>
 
       {/* Risk flags */}
-      {(hasAnomaly || hasImeiSwap) && (
-        <div className="flex gap-3 flex-wrap">
-          {hasImeiSwap && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-700">
-              <AlertTriangle size={13} />
-              IMEI Swap Detected
-            </div>
-          )}
-          {hasAnomaly && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-700">
-              <AlertTriangle size={13} />
-              Behavioural Anomaly Flagged
-            </div>
-          )}
-          {!hasAnomaly && !hasImeiSwap && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs font-medium text-green-700">
-              <CheckCircle size={13} />
-              No high-risk events detected
-            </div>
-          )}
-        </div>
-      )}
+      <div className="flex gap-3 flex-wrap">
+        {hasImeiSwap && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-700">
+            <AlertTriangle size={13} />
+            IMEI Swap Detected
+          </div>
+        )}
+        {hasMultiSimImei && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-700">
+            <AlertTriangle size={13} />
+            Burner IMEI / Multi-SIM Flagged
+          </div>
+        )}
+        {hasCrossCaseHandler && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-700">
+            <AlertTriangle size={13} />
+            Cross-Case Handler Matched
+          </div>
+        )}
+        {hasTowerSilence && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-700">
+            <AlertTriangle size={13} />
+            Tower Switch-Off Detected
+          </div>
+        )}
+        {hasLoopCall && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-700">
+            <AlertTriangle size={13} />
+            Loop Coordination Calls
+          </div>
+        )}
+        {hasNightCallBurst && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs font-medium text-amber-700">
+            <AlertTriangle size={13} />
+            Nocturnal Burst Activity
+          </div>
+        )}
+        {hasAnomaly && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-medium text-red-700">
+            <AlertTriangle size={13} />
+            Behavioural Anomaly Flagged
+          </div>
+        )}
+        {!hasAnyRisk && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs font-medium text-green-700">
+            <CheckCircle size={13} />
+            No high-risk events detected
+          </div>
+        )}
+      </div>
 
       {/* Section 1: Call Summary */}
       <div className="card">

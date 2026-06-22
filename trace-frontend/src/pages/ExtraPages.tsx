@@ -15,6 +15,10 @@ import {
   Bell,
   FileBarChart,
   Lock,
+  MapPin,
+  Shield,
+  Radio,
+  Target,
 } from "lucide-react";
 
 export function DashboardPage() {
@@ -715,6 +719,473 @@ export function SettingsPage() {
           </div>
 
         </div>
+      </div>
+    </div>
+  );
+}
+
+// GEO INTEL PAGE
+export function GeoIntelPage() {
+  const [cases, setCases] = useState<CaseOut[]>([]);
+  const [selectedCaseId, setSelectedCaseId] = useState("");
+  const [centerLat, setCenterLat] = useState("15.5057");
+  const [centerLon, setCenterLon] = useState("80.0499");
+  const [radiusKm, setRadiusKm] = useState("5.0");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<{
+    query: Record<string, any>;
+    hits: {
+      suspect_id: string;
+      suspect_label: string;
+      msisdn: string;
+      tower_id: string;
+      tower_lat: number;
+      tower_lon: number;
+      distance_km: number;
+      timestamp: string;
+      call_type: string;
+      duration_sec: number | null;
+    }[];
+    suspects_found: string[];
+    total_hits: number;
+  } | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.getCases()
+      .then((res) => {
+        setCases(res);
+        if (res.length > 0) {
+          setSelectedCaseId(res[0].id);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load cases", err);
+        setError("Failed to load active cases list.");
+      });
+  }, []);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCaseId) {
+      setError("Please select a case first.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setResults(null);
+    try {
+      const lat = parseFloat(centerLat);
+      const lon = parseFloat(centerLon);
+      const rad = parseFloat(radiusKm);
+      if (isNaN(lat) || isNaN(lon) || isNaN(rad)) {
+        throw new Error("Latitude, Longitude and Radius must be valid numbers.");
+      }
+      const data = await api.radialSearch(
+        selectedCaseId,
+        lat,
+        lon,
+        rad,
+        startTime || undefined,
+        endTime || undefined
+      );
+      setResults(data);
+    } catch (err: any) {
+      setError(err.message || "Failed to execute radial search.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-zinc-900 flex items-center gap-2">
+          <MapPin className="text-blue-500 w-5 h-5 animate-pulse" />
+          Radial Search & Tower Buffer Zones
+        </h1>
+        <p className="text-xs text-zinc-500 mt-1">
+          Query suspects whose cell tower pings occurred within a specific geographical radius of a crime scene or coordinates.
+        </p>
+      </div>
+
+      <div className="card">
+        <form onSubmit={handleSearch} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[11px] text-zinc-500 uppercase tracking-wider font-semibold mb-1">
+                Select Case
+              </label>
+              <select
+                value={selectedCaseId}
+                onChange={(e) => setSelectedCaseId(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-slate-400 font-sans"
+              >
+                {cases.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                {cases.length === 0 && <option value="">No cases available</option>}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-zinc-500 uppercase tracking-wider font-semibold mb-1">
+                Crime Scene Latitude
+              </label>
+              <input
+                type="text"
+                value={centerLat}
+                onChange={(e) => setCenterLat(e.target.value)}
+                placeholder="e.g. 15.5057"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-slate-400 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-zinc-500 uppercase tracking-wider font-semibold mb-1">
+                Crime Scene Longitude
+              </label>
+              <input
+                type="text"
+                value={centerLon}
+                onChange={(e) => setCenterLon(e.target.value)}
+                placeholder="e.g. 80.0499"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-slate-400 font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[11px] text-zinc-500 uppercase tracking-wider font-semibold mb-1">
+                Radius (Kilometres)
+              </label>
+              <input
+                type="text"
+                value={radiusKm}
+                onChange={(e) => setRadiusKm(e.target.value)}
+                placeholder="e.g. 5"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-slate-400 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-zinc-500 uppercase tracking-wider font-semibold mb-1">
+                Start Time (Optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-slate-400 font-sans"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-zinc-500 uppercase tracking-wider font-semibold mb-1">
+                End Time (Optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-slate-400 font-sans"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex items-center gap-2 px-5 py-2.5 bg-zinc-900 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors disabled:opacity-60 cursor-pointer uppercase tracking-wider"
+            >
+              {loading && <Loader2 size={12} className="animate-spin text-white" />}
+              {loading ? "Searching..." : "Execute Buffer Scan"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+          <XCircle size={14} className="shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {results && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="card flex items-center justify-between py-4">
+              <div>
+                <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Total Buffer Hits</p>
+                <h3 className="text-2xl font-bold text-zinc-950 mt-1">{results.total_hits}</h3>
+              </div>
+              <Radio className="text-zinc-300 w-8 h-8" />
+            </div>
+
+            <div className="card flex items-center justify-between py-4">
+              <div>
+                <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Suspects In Area</p>
+                <h3 className="text-2xl font-bold text-zinc-950 mt-1">{results.suspects_found.length}</h3>
+              </div>
+              <Target className="text-zinc-300 w-8 h-8" />
+            </div>
+          </div>
+
+          {results.suspects_found.length > 0 && (
+            <div className="card p-4">
+              <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block mb-2">
+                Suspects Identified
+              </span>
+              <div className="flex gap-2 flex-wrap">
+                {results.suspects_found.map((name) => (
+                  <span
+                    key={name}
+                    className="px-2.5 py-1 bg-blue-50 border border-blue-100 rounded text-xs font-medium text-blue-800"
+                  >
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="card">
+            <h2 className="text-sm font-semibold text-zinc-900 mb-4">Location Hit Logs</h2>
+            {results.hits.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-zinc-400 border-b border-[rgba(59,130,246,0.08)]">
+                      <th className="pb-2 font-medium">Suspect</th>
+                      <th className="pb-2 font-medium">MSISDN</th>
+                      <th className="pb-2 font-medium">Tower ID</th>
+                      <th className="pb-2 font-medium text-right">Distance (km)</th>
+                      <th className="pb-2 font-medium">Type</th>
+                      <th className="pb-2 font-medium text-right">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.hits.map((hit, i) => (
+                      <tr key={i} className="table-row-divider">
+                        <td className="py-2.5 font-medium text-slate-800">
+                          <Link to={`/suspects/${hit.suspect_id}`} className="hover:underline text-blue-600">
+                            {hit.suspect_label}
+                          </Link>
+                        </td>
+                        <td className="py-2.5 text-zinc-500 font-mono">{hit.msisdn}</td>
+                        <td className="py-2.5 text-zinc-600 font-mono">{hit.tower_id}</td>
+                        <td className="py-2.5 text-red-700 font-mono text-right font-semibold">
+                          {hit.distance_km} km
+                        </td>
+                        <td className="py-2.5 text-zinc-500">{hit.call_type}</td>
+                        <td className="py-2.5 text-zinc-400 text-right">
+                          {new Date(hit.timestamp).toLocaleString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-400">No pings matched the search parameters.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// AUDIT TRAIL PAGE
+export function AuditTrailPage() {
+  const [logs, setLogs] = useState<{
+    id: string;
+    action_type: string;
+    entity_type: string;
+    entity_id: string | null;
+    entity_label: string | null;
+    officer_ip: string | null;
+    officer_host: string | null;
+    detail: Record<string, any>;
+    timestamp: string;
+  }[]>([]);
+  const [total, setTotal] = useState(0);
+  const [actionType, setActionType] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadLogs = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await api.getAuditLogs(100, actionType || undefined);
+      setLogs(data.logs);
+      setTotal(data.total);
+    } catch (err: any) {
+      setError(err.message || "Failed to load audit logs.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLogs();
+  }, [actionType]);
+
+  const actionTypes = [
+    { label: "All Actions", value: "" },
+    { label: "Analysis Runs", value: "ANALYSIS_RUN" },
+    { label: "Reports Generated", value: "REPORT_GENERATED" },
+    { label: "Cases Created", value: "CASE_CREATED" },
+    { label: "Suspects Added", value: "SUSPECT_ADDED" },
+    { label: "CDR Uploads", value: "CDR_UPLOADED" },
+    { label: "IPDR Uploads", value: "IPDR_UPLOADED" },
+  ];
+
+  return (
+    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-900 flex items-center gap-2">
+            <Shield className="text-zinc-800 w-5 h-5 animate-pulse" />
+            Officer Activity Audit Trail
+          </h1>
+          <p className="text-xs text-zinc-500 mt-1">
+            System logs recording database uploads, analytical computations, and case report compilations ({total} total records).
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={actionType}
+            onChange={(e) => setActionType(e.target.value)}
+            className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-slate-400 font-sans cursor-pointer"
+          >
+            {actionTypes.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => loadLogs()}
+            disabled={loading}
+            className="p-1.5 hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
+            title="Refresh logs"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+          <XCircle size={14} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <div className="card">
+        {loading && logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3 text-zinc-400 font-mono text-xs">
+            <Loader2 className="animate-spin text-zinc-400 w-6 h-6" />
+            <span>Retrieving records...</span>
+          </div>
+        ) : logs.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-zinc-400 border-b border-[rgba(59,130,246,0.08)]">
+                  <th className="pb-2 font-medium w-36">Action</th>
+                  <th className="pb-2 font-medium">Involved Entity</th>
+                  <th className="pb-2 font-medium">Terminal IP</th>
+                  <th className="pb-2 font-medium">Details</th>
+                  <th className="pb-2 font-medium text-right">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => {
+                  let badgeColor = "bg-slate-100 text-slate-700 border-slate-200";
+                  if (log.action_type === "ANALYSIS_RUN") badgeColor = "bg-purple-50 text-purple-700 border-purple-100";
+                  if (log.action_type === "REPORT_GENERATED") badgeColor = "bg-green-50 text-green-700 border-green-100";
+                  if (log.action_type.includes("UPLOADED")) badgeColor = "bg-blue-50 text-blue-700 border-blue-100";
+
+                  return (
+                    <tr key={log.id} className="table-row-divider">
+                      <td className="py-3 pr-4">
+                        <span className={`px-2 py-0.5 rounded border text-[10px] font-mono font-medium ${badgeColor}`}>
+                          {log.action_type}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-semibold text-slate-800">
+                            {log.entity_label || "Global"}
+                          </span>
+                          <span className="text-[10px] text-zinc-400 font-mono">
+                            {log.entity_type} {log.entity_id ? `(${log.entity_id.slice(0, 8)})` : ""}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-zinc-500">
+                        {log.officer_ip || "127.0.0.1"}
+                      </td>
+                      <td className="py-3 pr-4 text-zinc-600 max-w-xs truncate" title={JSON.stringify(log.detail)}>
+                        {log.action_type === "ANALYSIS_RUN" ? (
+                          <span>
+                            Ran {log.detail.engines_run || 8} engines, found {log.detail.events_generated || 0} alerts.
+                          </span>
+                        ) : log.action_type === "CDR_UPLOADED" || log.action_type === "IPDR_UPLOADED" ? (
+                          <span>
+                            Inserted {log.detail.rows_inserted || log.detail.rows_inserted_cdr || 0} rows.
+                          </span>
+                        ) : log.detail.note ? (
+                          <span>{String(log.detail.note)}</span>
+                        ) : (
+                          <span className="font-mono text-[10px] text-zinc-400">
+                            {JSON.stringify(log.detail)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 text-zinc-400 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className="font-medium text-slate-700">
+                            {new Date(log.timestamp).toLocaleDateString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                          <span className="text-[10px] font-mono mt-0.5">
+                            {new Date(log.timestamp).toLocaleTimeString("en-IN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-400 py-6 text-center">No audit trail records found.</p>
+        )}
       </div>
     </div>
   );

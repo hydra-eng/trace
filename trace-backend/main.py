@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
-from routers import cases, upload, analysis, events, suspects, report
+from routers import cases, upload, analysis, events, suspects, report, geo, audit
 
-# Create all tables on startup
+# Create all tables on startup (including new AuditLog)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -32,6 +32,8 @@ app.include_router(analysis.router)
 app.include_router(events.router)
 app.include_router(suspects.router)
 app.include_router(report.router)
+app.include_router(geo.router)
+app.include_router(audit.router)
 
 
 @app.get("/health")

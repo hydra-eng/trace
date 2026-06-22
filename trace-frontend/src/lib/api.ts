@@ -416,6 +416,76 @@ export const api = {
   getSharedContacts: (caseId: string) =>
     request<import("./types").SharedContact[]>(`/cases/${caseId}/shared-contacts`),
 
+  getGlobalHandlers: () =>
+    request<{ number: string; case_count: number; total_calls: number }[]>("/global/handler-numbers"),
+
+  // Geo Intel — Radial Search
+  radialSearch: (
+    caseId: string,
+    centerLat: number,
+    centerLon: number,
+    radiusKm: number,
+    startTime?: string,
+    endTime?: string
+  ) => {
+    if (useMock) {
+      return Promise.resolve({
+        query: { center_lat: centerLat, center_lon: centerLon, radius_km: radiusKm },
+        hits: [],
+        suspects_found: [],
+        total_hits: 0,
+      });
+    }
+    return request<{
+      query: Record<string, unknown>;
+      hits: {
+        suspect_id: string;
+        suspect_label: string;
+        msisdn: string;
+        tower_id: string;
+        tower_lat: number;
+        tower_lon: number;
+        distance_km: number;
+        timestamp: string;
+        call_type: string;
+        duration_sec: number | null;
+      }[];
+      suspects_found: string[];
+      total_hits: number;
+    }>(`/cases/${caseId}/radial-search`, {
+      method: "POST",
+      body: JSON.stringify({
+        center_lat: centerLat,
+        center_lon: centerLon,
+        radius_km: radiusKm,
+        start_time: startTime || null,
+        end_time: endTime || null,
+      }),
+    });
+  },
+
+  // Audit Trail
+  getAuditLogs: (limit = 100, actionType?: string) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (actionType) params.set("action_type", actionType);
+    return request<{
+      total: number;
+      offset: number;
+      limit: number;
+      logs: {
+        id: string;
+        action_type: string;
+        entity_type: string;
+        entity_id: string | null;
+        entity_label: string | null;
+        officer_ip: string | null;
+        officer_host: string | null;
+        detail: Record<string, unknown>;
+        timestamp: string;
+      }[];
+    }>(`/audit/logs?${params.toString()}`);
+  },
+
   // Report PDF
   getReportUrl: (suspectId: string) => {
     if (useMock) {
