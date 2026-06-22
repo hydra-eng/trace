@@ -121,12 +121,27 @@ export default function SuspectProfilePage() {
     if (!suspectId) return;
     const url = api.getReportUrl(suspectId);
     if (url.startsWith("data:")) {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `TRACE_${suspect.label.replace(/\s+/g, "_")}_report.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      try {
+        const base64Parts = url.split(",");
+        const base64Data = base64Parts[1];
+        const binary = atob(base64Data);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: "application/pdf" });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `TRACE_${suspect.label.replace(/\s+/g, "_")}_report.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      } catch (err) {
+        console.error("Failed to download PDF in demo mode:", err);
+      }
     } else {
       window.location.href = url;
     }
