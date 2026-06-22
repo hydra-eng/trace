@@ -119,7 +119,17 @@ export default function SuspectProfilePage() {
   const handleDownloadReport = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!suspectId) return;
-    window.location.href = api.getReportUrl(suspectId);
+    const url = api.getReportUrl(suspectId);
+    if (url.startsWith("data:")) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `TRACE_${suspect.label.replace(/\s+/g, "_")}_report.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      window.location.href = url;
+    }
   };
 
   return (
