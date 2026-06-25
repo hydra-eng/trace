@@ -7,8 +7,10 @@ import {
   MapMarker,
   MapRoute,
   MapArc,
+  MarkerTooltip,
   type MapArcDatum,
 } from "@/components/ui/map";
+import { cn } from "@/lib/utils";
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const INITIAL_CENTER: [number, number] = [79.7400, 15.9000];
@@ -94,6 +96,69 @@ export default function MovementMap({
   const [suspectRoutes, setSuspectRoutes] = useState<
     Record<string, [number, number][]>
   >({});
+
+  const [mapInstance, setMapInstance] = useState<any>(null);
+
+  // ── Fit Map Bounds to show the total path on the screen ────────────────────
+  useEffect(() => {
+    if (!mapInstance) return;
+
+    const coords: [number, number][] = [];
+
+    // Collect coordinates from movements
+    movements.forEach((m) => {
+      coords.push([m.lon, m.lat]);
+    });
+
+    // Collect from CCTV detections
+    cctvDetections.forEach((det) => {
+      if (det.camera_lon && det.camera_lat) {
+        coords.push([det.camera_lon, det.camera_lat]);
+      }
+    });
+
+    // Collect from suspect routes
+    Object.values(suspectRoutes).forEach((route) => {
+      route.forEach(([lon, lat]) => {
+        coords.push([lon, lat]);
+      });
+    });
+
+    if (coords.length === 0) return;
+
+    // Compute bounding box
+    let minLon = Infinity;
+    let maxLon = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+
+    coords.forEach(([lon, lat]) => {
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    });
+
+    // Make sure we have a valid bounding box with some minimum size
+    if (minLon === maxLon) {
+      minLon -= 0.05;
+      maxLon += 0.05;
+    }
+    if (minLat === maxLat) {
+      minLat -= 0.05;
+      maxLat += 0.05;
+    }
+
+    try {
+      mapInstance.fitBounds([minLon, minLat, maxLon, maxLat], {
+        padding: { top: 60, bottom: 60, left: 60, right: 60 },
+        maxZoom: 13,
+        duration: 1500,
+      });
+    } catch (err) {
+      console.error("Error fitting bounds:", err);
+    }
+  }, [mapInstance, movements, suspectRoutes, cctvDetections]);
 
   // ── Esc key to exit fullscreen ────────────────────────────────────────────
   useEffect(() => {
@@ -289,6 +354,14 @@ export default function MovementMap({
     return `Day ${v.day} ${v.time} (25 min)`;
   };
 
+  const getGlowClass = (label: string) => {
+    if (label.includes("A") || label.includes("Kalyan")) return "glow-blue";
+    if (label.includes("B") || label.includes("Venkatesh")) return "glow-violet";
+    if (label.includes("C") || label.includes("Subba")) return "glow-emerald";
+    if (label.includes("D")) return "glow-amber";
+    return "glow-blue";
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
@@ -299,8 +372,41 @@ export default function MovementMap({
       }
       className="font-sans text-slate-700"
     >
+      <style>{`
+        @keyframes glow-pulse-blue {
+          0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+          70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        @keyframes glow-pulse-violet {
+          0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
+          70% { box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+        }
+        @keyframes glow-pulse-emerald {
+          0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+          70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        @keyframes glow-pulse-amber {
+          0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+          70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+        @keyframes glow-pulse-red {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+          70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .glow-blue { animation: glow-pulse-blue 1.8s infinite; }
+        .glow-violet { animation: glow-pulse-violet 1.8s infinite; }
+        .glow-emerald { animation: glow-pulse-emerald 1.8s infinite; }
+        .glow-amber { animation: glow-pulse-amber 1.8s infinite; }
+        .glow-red { animation: glow-pulse-red 1.8s infinite; }
+      `}</style>
       <div style={{ flex: 1, position: "relative" }}>
         <Map
+          ref={setMapInstance}
           center={INITIAL_CENTER}
           zoom={INITIAL_ZOOM}
           theme="light"
@@ -351,22 +457,50 @@ export default function MovementMap({
               onClick={() => { setSelectedTower(tower); setSelectedCctv(null); }}
             >
               <div
-                title={tower.name}
+                className={cn(
+                  "rounded-full cursor-pointer transition-all duration-150",
+                  tower.hasColocation ? "glow-red" : ""
+                )}
                 style={{
                   width: tower.hasColocation ? 20 : 14,
                   height: tower.hasColocation ? 20 : 14,
-                  borderRadius: "50%",
                   backgroundColor: tower.hasColocation ? "#ef4444" : "#ffffff",
                   border: tower.hasColocation ? "2.5px solid #b91c1c" : "2px solid #475569",
-                  boxShadow: tower.hasColocation
-                    ? "0 0 0 4px rgba(239,68,68,0.18)"
-                    : "0 1px 4px rgba(0,0,0,0.18)",
-                  cursor: "pointer",
-                  transition: "transform 0.15s",
+                  boxShadow: tower.hasColocation ? undefined : "0 1px 4px rgba(0,0,0,0.18)",
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.25)")}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
               />
+              <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2.5 text-xs shadow-lg font-sans min-w-[200px] z-50">
+                <div className="font-bold flex items-center justify-between gap-2">
+                  <span>{tower.name}</span>
+                  {tower.hasColocation && (
+                    <span className="bg-red-600 text-white text-[8px] px-1 rounded font-bold animate-pulse">
+                      CO-LOCATION
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono mt-0.5">{tower.id} · {tower.district} District</div>
+                <div className="border-t border-slate-700 my-1.5" />
+                <div className="text-[10px] text-slate-300">
+                  <strong>Visits:</strong> {tower.visits?.length || 0} logged coordinates
+                </div>
+                {tower.visits && tower.visits.length > 0 && (
+                  <div className="text-[9px] text-slate-400 mt-1 max-h-[80px] overflow-y-auto font-mono">
+                    {tower.visits.slice(0, 3).map((v: any, idx: number) => (
+                      <div key={idx} className="truncate">
+                        • {v.suspect} (Day {v.day} · {v.time})
+                      </div>
+                    ))}
+                    {tower.visits.length > 3 && (
+                      <div className="text-[8px] text-slate-500 italic mt-0.5">
+                        + {tower.visits.length - 3} more visits...
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="text-[9px] text-slate-500 mt-1.5 italic font-mono">Click site to view full details</div>
+              </MarkerTooltip>
             </MapMarker>
           ))}
 
@@ -378,77 +512,101 @@ export default function MovementMap({
               latitude={swap.tower.lat}
             >
               <div
-                title={`IMEI Swap: ${(swap.detail as any)?.old_imei?.slice(-6)} → ${(swap.detail as any)?.new_imei?.slice(-6)}`}
+                className="glow-amber rounded-full flex items-center justify-center text-white font-bold cursor-default shadow-md"
                 style={{
                   background: "#f59e0b",
                   border: "2px solid #fff",
-                  borderRadius: "50%",
-                  width: 16,
-                  height: 16,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 8,
-                  fontWeight: 700,
-                  color: "#fff",
-                  cursor: "default",
-                  boxShadow: "0 0 0 3px rgba(245,158,11,0.25)",
+                  width: 18,
+                  height: 18,
+                  fontSize: 9,
                 }}
               >
                 ⚠
               </div>
+              <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2.5 text-xs shadow-lg font-sans min-w-[220px] z-50">
+                <div className="font-bold text-amber-400 flex items-center gap-1.5">
+                  <span>⚠ IMEI Swap Detected</span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono mt-0.5">Tower: {swap.tower.name}</div>
+                <div className="border-t border-slate-700 my-1.5" />
+                <div className="space-y-0.5 text-[10px]">
+                  <div><strong>Suspects:</strong> {swap.involved_suspects?.join(", ")}</div>
+                  <div><strong>Old Handset (IMEI):</strong> <span className="font-mono text-slate-300">...{(swap.detail as any)?.old_imei?.slice(-6)}</span></div>
+                  <div><strong>New Handset (IMEI):</strong> <span className="font-mono text-slate-300">...{(swap.detail as any)?.new_imei?.slice(-6)}</span></div>
+                  <div><strong>Time:</strong> <span className="text-slate-300 font-mono">{new Date(swap.occurred_at || "").toLocaleString("en-IN")}</span></div>
+                </div>
+              </MarkerTooltip>
             </MapMarker>
           ))}
 
           {/* ── Suspect current-position markers ── */}
           {Object.entries(currentPositions).map(([label, pos]) => {
             const hex = SUSPECT_HEX_COLORS[label] || "#3b82f6";
+            const glowClass = getGlowClass(label);
             return (
               <MapMarker key={`susp-${label}`} longitude={pos.lon} latitude={pos.lat}>
                 <div
-                  title={label}
+                  className={cn("rounded-full border-2 border-white cursor-pointer shadow-md", glowClass)}
                   style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: "50%",
+                    width: 16,
+                    height: 16,
                     backgroundColor: hex,
-                    border: "2px solid white",
-                    boxShadow: `0 0 0 4px ${hex}33`,
-                    cursor: "default",
                   }}
                 />
+                <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2 text-xs shadow-lg font-sans z-50">
+                  <div className="font-bold">{label}</div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">Current Position</div>
+                  <div className="text-[10px] text-slate-400 font-mono">Coords: {pos.lat.toFixed(4)}°N, {pos.lon.toFixed(4)}°E</div>
+                </MarkerTooltip>
               </MapMarker>
             );
           })}
 
           {/* ── CCTV camera markers ── */}
-          {cctvDetections.map((det) => (
-            <MapMarker
-              key={det.camera_id}
-              longitude={det.camera_lon}
-              latitude={det.camera_lat}
-              onClick={() => { setSelectedCctv(det); setSelectedTower(null); }}
-            >
-              <div
-                title={`📷 ${det.camera_name}`}
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: "4px",
-                  backgroundColor: det.correlation_status === "CONFIRMED" ? "#16a34a" : "#f59e0b",
-                  border: "2px solid #fff",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 10,
-                  cursor: "pointer",
-                }}
+          {cctvDetections.map((det) => {
+            const isConfirmed = det.correlation_status === "CONFIRMED";
+            return (
+              <MapMarker
+                key={det.camera_id}
+                longitude={det.camera_lon}
+                latitude={det.camera_lat}
+                onClick={() => { setSelectedCctv(det); setSelectedTower(null); }}
               >
-                📷
-              </div>
-            </MapMarker>
-          ))}
+                <div
+                  className={cn(
+                    "rounded flex items-center justify-center cursor-pointer shadow-md text-[10px] transition-transform",
+                    isConfirmed ? "glow-emerald" : "glow-amber"
+                  )}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    backgroundColor: isConfirmed ? "#16a34a" : "#f59e0b",
+                    border: "2px solid #fff",
+                  }}
+                >
+                  📷
+                </div>
+                <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2.5 text-xs shadow-lg font-sans min-w-[220px] z-50">
+                  <div className="font-bold flex items-center justify-between gap-2">
+                    <span>📷 {det.camera_name}</span>
+                    <span className={cn("text-[8px] px-1 rounded font-bold text-white", isConfirmed ? "bg-emerald-600" : "bg-amber-600")}>
+                      {det.correlation_status}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">{det.camera_id}</div>
+                  <div className="border-t border-slate-700 my-1.5" />
+                  <div className="space-y-0.5 text-[10px]">
+                    <div className="text-emerald-400 font-bold">
+                      Match: {det.suspect_label} ({Math.round(det.confidence_score * 100)}% Conf)
+                    </div>
+                    <div><strong>Time:</strong> <span className="font-mono text-slate-300">{new Date(det.detection_timestamp).toLocaleString("en-IN")}</span></div>
+                    <div className="text-slate-300 italic text-[9px] mt-1 leading-tight">"{det.notes}"</div>
+                  </div>
+                  <div className="text-[9px] text-slate-500 mt-1.5 italic font-mono">Click camera to view live feed frame</div>
+                </MarkerTooltip>
+              </MapMarker>
+            );
+          })}
         </Map>
 
         {/* ── Map Style + Fullscreen controls ── */}
