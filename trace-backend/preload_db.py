@@ -17,7 +17,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database import SessionLocal, engine, Base
-from models import Case, Suspect, CDRRecord, IPDRRecord, Event
+from models import Case, Suspect, CDRRecord, IPDRRecord, Event, PriorIncident, CCTVDetection
 from engines.imei_swap import detect_imei_swaps
 from engines.co_location import detect_co_location
 from engines.common_contact import detect_common_contacts
@@ -162,6 +162,8 @@ def main():
     db.query(Event).delete()
     db.query(CDRRecord).delete()
     db.query(IPDRRecord).delete()
+    db.query(CCTVDetection).delete()
+    db.query(PriorIncident).delete()
     db.query(Suspect).delete()
     db.query(Case).delete()
     db.commit()
@@ -189,6 +191,112 @@ def main():
                     "Case1_Ongole_Tobacco_Smuggling_CDR_Anjali_Devi.csv")
 
     run_analysis_for_case(db, case1.id)
+
+    # Seed prior incidents and CCTV detections
+    kalyan = db.query(Suspect).filter(Suspect.label == "Kalyan Chakravarthy").first()
+    venkatesh = db.query(Suspect).filter(Suspect.label == "Venkatesh Prasad").first()
+
+    kalyan_id = kalyan.id if kalyan else None
+    venkatesh_id = venkatesh.id if venkatesh else None
+
+    PRIOR_INCIDENTS = [
+        {
+            "msisdn": "919000100001",  # Kalyan Chakravarthy (kingpin)
+            "case_reference": "FIR 87/2022 — Nellore District",
+            "offence_type": "Illicit Tobacco Smuggling",
+            "incident_date": datetime(2022, 3, 15),
+            "district": "Nellore",
+            "outcome": "Charge Sheet Filed"
+        },
+        {
+            "msisdn": "919000100001",  # second prior for same suspect
+            "case_reference": "FIR 214/2019 — Prakasham District",
+            "offence_type": "Hawala Transaction (Suspected)",
+            "incident_date": datetime(2019, 11, 2),
+            "district": "Prakasham",
+            "outcome": "Acquitted — Insufficient Evidence"
+        },
+        {
+            "msisdn": "919000100002",  # Venkatesh Prasad (coordinator)
+            "case_reference": "FIR 33/2023 — Guntur District",
+            "offence_type": "Organised Drug Peddling",
+            "incident_date": datetime(2023, 6, 20),
+            "district": "Guntur",
+            "outcome": "FIR Registered — Under Investigation"
+        },
+    ]
+
+    for p in PRIOR_INCIDENTS:
+        db.add(PriorIncident(**p))
+    db.commit()
+
+    CCTV_DETECTIONS = [
+        {
+            "suspect_id": kalyan_id,
+            "camera_id": "CAM-ONG-MKT-01",
+            "camera_name": "Ongole Main Market Junction",
+            "camera_lat": 15.5071,
+            "camera_lon": 80.0512,
+            "detection_timestamp": datetime(2024, 1, 2, 14, 52, 0),
+            "confidence_score": 0.91,
+            "frame_image_path": "/static/cctv/frame_kalyan_ong_01.jpg",
+            "matched_tower_id": "TWR-ONG-001",
+            "correlation_status": "CONFIRMED",
+            "notes": "Subject detected at Ongole Main Market 6 min before CDR tower TWR-ONG-001 registration"
+        },
+        {
+            "suspect_id": venkatesh_id,
+            "camera_id": "CAM-CDD-NH16-01",
+            "camera_name": "Chirala NH-16 Toll Plaza Camera",
+            "camera_lat": 15.8180,
+            "camera_lon": 80.3520,
+            "detection_timestamp": datetime(2024, 1, 2, 15, 5, 0),
+            "confidence_score": 0.87,
+            "frame_image_path": "/static/cctv/frame_venkatesh_cdd_01.jpg",
+            "matched_tower_id": "TWR-CDD-001",
+            "correlation_status": "CONFIRMED",
+            "notes": "Subject detected at Chirala toll gate simultaneous with CDR tower TWR-CDD-001 co-location event"
+        },
+        {
+            "suspect_id": kalyan_id,
+            "camera_id": "CAM-ONG-BUS-01",
+            "camera_name": "Ongole APSRTC Bus Stand",
+            "camera_lat": 15.5042,
+            "camera_lon": 80.0465,
+            "detection_timestamp": datetime(2024, 1, 5, 2, 19, 0),
+            "confidence_score": 0.79,
+            "frame_image_path": "/static/cctv/frame_kalyan_bus_01.jpg",
+            "matched_tower_id": "TWR-ONG-002",
+            "correlation_status": "CONFIRMED",
+            "notes": "Night-time detection at 02:19 hrs — correlates with CDR IMEI swap event at 02:13 hrs same night"
+        },
+    ]
+
+    for c in CCTV_DETECTIONS:
+        db.add(CCTVDetection(**c))
+    db.commit()
+
+    # Generate CCTV placeholder images using PIL
+    from PIL import Image, ImageDraw
+    static_cctv_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "cctv")
+    os.makedirs(static_cctv_dir, exist_ok=True)
+
+    def draw_and_save_frame(camera_id, timestamp_str, conf_score, filename):
+        img = Image.new('RGB', (320, 240), color=(30, 30, 30))
+        draw = ImageDraw.Draw(img)
+        # Draw simple face bounding box
+        draw.rectangle([100, 60, 220, 180], outline=(0, 255, 0), width=2)
+        draw.text((105, 62), "PERSON", fill=(0, 255, 0))
+        # Draw camera info
+        draw.text((8, 8), camera_id, fill=(255, 255, 255))
+        draw.text((8, 22), timestamp_str, fill=(200, 200, 200))
+        draw.text((8, 210), f"Face Match Conf: {conf_score}", fill=(0, 255, 0))
+        img.save(os.path.join(static_cctv_dir, filename))
+
+    draw_and_save_frame("CAM-ONG-MKT-01", "2024-01-02 14:52:00", "0.91", "frame_kalyan_ong_01.jpg")
+    draw_and_save_frame("CAM-CDD-NH16-01", "2024-01-02 15:05:00", "0.87", "frame_venkatesh_cdd_01.jpg")
+    draw_and_save_frame("CAM-ONG-BUS-01", "2024-01-05 02:19:00", "0.79", "frame_kalyan_bus_01.jpg")
+    print("  Seeded prior incidents, CCTV records, and generated placeholder images.")
 
     # ══════════════════════════════════════════════════════════════════════════
     # CASE 2: Hyderabad–Guntur Cyber Fraud Network (FIR 135/2026)

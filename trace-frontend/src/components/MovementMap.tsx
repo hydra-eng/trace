@@ -81,13 +81,15 @@ interface Props {
   movements: MovementPoint[];
   events?: EventOut[];
   suspectLabel?: string;
+  cctvDetections?: any[];
 }
 
-export default function MovementMap({ movements, events = [], suspectLabel }: Props) {
+export default function MovementMap({ movements, events = [], suspectLabel, cctvDetections = [] }: Props) {
   const [viewState, setViewState] = useState(INITIAL_VIEW);
   const [hoveredTower, setHoveredTower] = useState<any>(null);
   const [hoverCoords, setHoverCoords] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [selectedTower, setSelectedTower] = useState<any>(null);
+  const [selectedCctv, setSelectedCctv] = useState<any>(null);
 
   // Fullscreen, style, and pulsing animation states
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -260,6 +262,7 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
       onClick: (info: any) => {
         if (info.object) {
           setSelectedTower(info.object);
+          setSelectedCctv(null);
         }
       }
     }),
@@ -379,6 +382,58 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
       visible: true
     })
   ];
+
+  if (cctvDetections && cctvDetections.length > 0) {
+    layers.push(
+      new ScatterplotLayer({
+        id: "cctv-cameras",
+        data: cctvDetections,
+        getPosition: (d: any) => [d.camera_lon, d.camera_lat],
+        getRadius: 350,
+        getFillColor: (d: any) => d.correlation_status === 'CONFIRMED'
+          ? [22, 163, 74, 220]   // green-600
+          : [245, 158, 11, 180], // amber-500
+        getLineColor: [255, 255, 255, 255],
+        lineWidthMinPixels: 2,
+        stroked: true,
+        filled: true,
+        pickable: true,
+        onHover: (info: any) => {
+          if (info.object) {
+            setHoveredTower({
+              id: info.object.camera_id,
+              name: `📷 ${info.object.camera_name}`,
+              district: `Face match: ${Math.round(info.object.confidence_score * 100)}%`,
+              lat: info.object.camera_lat,
+              lon: info.object.camera_lon,
+              customMessage: `CDR match: ${info.object.matched_tower_id} (${info.object.correlation_status})`
+            });
+            setHoverCoords({ x: info.x, y: info.y });
+          } else {
+            setHoveredTower(null);
+          }
+        },
+        onClick: (info: any) => {
+          if (info.object) {
+            setSelectedCctv(info.object);
+            setSelectedTower(null);
+          }
+        }
+      })
+    );
+
+    layers.push(
+      new TextLayer({
+        id: "cctv-labels",
+        data: cctvDetections,
+        getPosition: (d: any) => [d.camera_lon, d.camera_lat],
+        getText: () => "📷",
+        fontSize: 12,
+        getPixelOffset: [0, -14],
+        fontFamily: "Inter, sans-serif"
+      })
+    );
+  }
 
   // Layer 3: Suspect movement LineLayers fully drawn
   Object.entries(suspectGroups).forEach(([label, pts]) => {
@@ -570,6 +625,68 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
           </div>
         )}
 
+        {/* Selected CCTV Panel (Right-Side) */}
+        {selectedCctv && (
+          <div className="absolute right-0 top-0 bottom-0 w-60 bg-white border-l border-slate-200 z-30 p-4 overflow-y-auto shadow-lg flex flex-col font-sans">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest">CCTV Camera Detail</span>
+                <h3 className="text-sm font-bold text-slate-800 mt-0.5">📷 {selectedCctv.camera_name}</h3>
+                <p className="text-[10px] text-zinc-500 font-mono">{selectedCctv.camera_id}</p>
+              </div>
+              <button
+                onClick={() => setSelectedCctv(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-50 cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="text-[10px] text-slate-500 font-mono space-y-1 py-2 border-y border-slate-100">
+              <div>Coords: {selectedCctv.camera_lat.toFixed(4)}°N · {selectedCctv.camera_lon.toFixed(4)}°E</div>
+              <div>Detection: {new Date(selectedCctv.detection_timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+            </div>
+
+            <div className="mt-3 p-2 bg-emerald-50 border-l-2 border-emerald-500 text-[10px] text-emerald-800 font-semibold rounded-sm">
+              Face match confidence: {Math.round(selectedCctv.confidence_score * 100)}%
+            </div>
+
+            <div className="mt-4 flex-1 space-y-3">
+              <div>
+                <h4 className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">CDR Match</h4>
+                <p className="text-xs text-zinc-700 font-medium font-mono">
+                  {selectedCctv.matched_tower_id}
+                </p>
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold mt-1 uppercase ${
+                  selectedCctv.correlation_status === 'CONFIRMED'
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                }`}>
+                  {selectedCctv.correlation_status}
+                </span>
+              </div>
+
+              <div>
+                <h4 className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Correlation Detail</h4>
+                <p className="text-xs text-zinc-600 leading-tight">{selectedCctv.notes}</p>
+              </div>
+
+              {selectedCctv.frame_image_path && (
+                <div className="mt-3">
+                  <a
+                    href={selectedCctv.frame_image_path}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-600 font-bold hover:underline text-[10px] block"
+                  >
+                    View frame →
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Legend (Bottom-Right) */}
         <div className="absolute bottom-3 right-3 z-10 bg-white border border-slate-200 rounded p-2.5 shadow-sm text-[9px] font-sans max-w-[150px]">
           <h5 className="font-bold text-slate-700 uppercase tracking-wider mb-1.5 border-b border-slate-100 pb-1">Legend</h5>
@@ -595,6 +712,9 @@ export default function MovementMap({ movements, events = [], suspectLabel }: Pr
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-amber-500 border border-amber-600" />
               <span className="text-amber-600 font-semibold">IMEI Swap Site</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-green-600 font-semibold">📷 Green = CCTV Match</span>
             </div>
           </div>
         </div>

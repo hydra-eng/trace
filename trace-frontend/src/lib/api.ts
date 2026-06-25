@@ -30,6 +30,8 @@ const memoryGlobalHandlers = [...mockGlobalHandlers];
 // Displays: "TRACE - Criminal Intelligence Platform" and "Demo Mode - PDF Report Simulation"
 const dummyPdfBase64 = "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iagogIDw8IC9UeXBlIC9DYXRhbG9nCiAgICAgL1BhZ2VzIDIgMCBSCiAgPj4KZW5kb2JqCjIgMCBvYmoKICA8PCAvVHlwZSAvUGFnZXMKICAgICAvS2lkcyBbIDMgMCBSIF0KICAgICAvQ291bnQgMQogID4+CmVuZG9iagozIDAgb2JqCiAgPDwgL1R5cGUgL1BhZ2UKICAgICAvUGFyZW50IDIgMCBSCiAgICAgL01lZGlhQm94IFsgMCAwIDU5NSA4NDIgXQogICAgIC9Db250ZW50cyA0IDAgUgogICAgIC9SZXNvdXJjZXMgPDwgL0ZvbnQgPDwgL0YxIDUgMCBSID4+ID4+CiAgPj4KZW5kb2JqCjQgMCBvYmoKICA8PCAvTGVuZ3RoIDcwID4+CnN0cmVhbQpCVAovRjEgMjQgVGYKNzAgNzIwIFRkCihUUkFDRSAtIENyaW1pbmFsIEludGVsbGlnZW5jZSBQbGF0Zm9ybSkgVGoKMCAtMzAgVGQKKERlbW8gTW9kZSAtIFBERiBSZXBvcnQgU2ltdWxhdGlvbikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iago1IDAgb2JqCiAgPDwgL1R5cGUgL0ZvbnQKICAgICAvU3VidHlwZSAvVHlwZTEKICAgICAvQmFzZUZvbnQgL0hlbHZldGljYQogID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIGYgCjAwMDAwMDAyNDQgMDAwMDAgbiAKMDAwMDAwMDM2NSAwMDAwMCBuIAp0cmFpbGVyCiAgPDwgL1NpemUgNgogICAgIC9Sb290IDEgMCBSCiAgPj4Kc3RhcnR4cmVmCjQ1NQolJUVPRgo=";
 
+
+
 // Helper to parse query parameters from a path string
 function parseQuery(path: string): Record<string, string> {
   const qIdx = path.indexOf("?");
@@ -132,7 +134,54 @@ function handleMockRequest<T>(path: string, options?: RequestInit): Promise<T> {
     const id = cleanPath.split("/")[2];
     const profile = memorySuspectProfiles[id];
     if (!profile) return Promise.reject(new Error("Suspect not found"));
-    return Promise.resolve(profile as unknown as T);
+
+    // Add recidivism_data dynamically in mock mode
+    const label = profile.suspect.label;
+    let recData = null;
+    if (label === "Kalyan Chakravarthy") {
+      recData = {
+        base_score: 72,
+        recidivism_adjustment: 20,
+        final_score: 92,
+        prior_incident_count: 2,
+        risk_band: "CRITICAL",
+        risk_band_color: "red",
+        recommended_action: "Immediate escalation to SP/DIG level",
+        priors: [
+          { case_reference: "FIR 87/2022 — Nellore District", offence_type: "Illicit Tobacco Smuggling", incident_date: "2022-03-15", district: "Nellore", outcome: "Charge Sheet Filed" },
+          { case_reference: "FIR 214/2019 — Prakasham District", offence_type: "Hawala Transaction (Suspected)", incident_date: "2019-11-02", district: "Prakasham", outcome: "Acquitted" }
+        ]
+      };
+    } else if (label === "Venkatesh Prasad") {
+      recData = {
+        base_score: 55,
+        recidivism_adjustment: 8,
+        final_score: 63,
+        prior_incident_count: 1,
+        risk_band: "HIGH",
+        risk_band_color: "orange",
+        recommended_action: "Priority surveillance — daily reporting",
+        priors: [
+          { case_reference: "FIR 33/2023 — Guntur District", offence_type: "Organised Drug Peddling", incident_date: "2023-06-20", district: "Guntur", outcome: "FIR Registered" }
+        ]
+      };
+    } else {
+      recData = {
+        base_score: 15,
+        recidivism_adjustment: 0,
+        final_score: 15,
+        prior_incident_count: 0,
+        risk_band: "LOW",
+        risk_band_color: "green",
+        recommended_action: "Routine monitoring",
+        priors: []
+      };
+    }
+
+    return Promise.resolve({
+      ...profile,
+      recidivism_data: recData
+    } as unknown as T);
   }
 
   // 10. GET /suspects/{id}/movement
@@ -150,6 +199,172 @@ function handleMockRequest<T>(path: string, options?: RequestInit): Promise<T> {
   // 12. GET /global/handler-numbers
   if (cleanPath === "/global/handler-numbers" && (!options || options.method === "GET" || !options.method)) {
     return Promise.resolve(memoryGlobalHandlers as unknown as T);
+  }
+
+  // 13. GET /suspects/{id}/recidivism
+  if (cleanPath.startsWith("/suspects/") && cleanPath.endsWith("/recidivism")) {
+    const id = cleanPath.split("/")[2];
+    let label = "Unknown";
+    for (const list of Object.values(memorySuspectsByCase)) {
+      const found = list.find((s) => s.id === id);
+      if (found) { label = found.label; break; }
+    }
+    
+    let baseScore = 15;
+    let adjustment = 0;
+    let finalScore = 15;
+    let band = "LOW";
+    let priorCount = 0;
+    let priorsList: any[] = [];
+
+    if (label === "Kalyan Chakravarthy") {
+      baseScore = 72;
+      adjustment = 20;
+      finalScore = 92;
+      band = "CRITICAL";
+      priorCount = 2;
+      priorsList = [
+        { case_reference: "FIR 87/2022 — Nellore District", offence_type: "Illicit Tobacco Smuggling", incident_date: "2022-03-15", district: "Nellore", outcome: "Charge Sheet Filed" },
+        { case_reference: "FIR 214/2019 — Prakasham District", offence_type: "Hawala Transaction (Suspected)", incident_date: "2019-11-02", district: "Prakasham", outcome: "Acquitted" }
+      ];
+    } else if (label === "Venkatesh Prasad") {
+      baseScore = 55;
+      adjustment = 8;
+      finalScore = 63;
+      band = "HIGH";
+      priorCount = 1;
+      priorsList = [
+        { case_reference: "FIR 33/2023 — Guntur District", offence_type: "Organised Drug Peddling", incident_date: "2023-06-20", district: "Guntur", outcome: "FIR Registered" }
+      ];
+    }
+
+    return Promise.resolve({
+      base_score: baseScore,
+      recidivism_adjustment: adjustment,
+      final_score: finalScore,
+      prior_incident_count: priorCount,
+      risk_band: band,
+      risk_band_color: band === "CRITICAL" ? "red" : band === "HIGH" ? "orange" : band === "MEDIUM" ? "amber" : "green",
+      recommended_action: band === "CRITICAL" ? "Immediate escalation to SP/DIG level" : band === "HIGH" ? "Priority surveillance — daily reporting" : "Routine monitoring",
+      priors: priorsList
+    } as unknown as T);
+  }
+
+  // 14. GET /suspects/{id}/cctv
+  if (cleanPath.startsWith("/suspects/") && cleanPath.endsWith("/cctv")) {
+    const id = cleanPath.split("/")[2];
+    let label = "Unknown";
+    for (const list of Object.values(memorySuspectsByCase)) {
+      const found = list.find((s) => s.id === id);
+      if (found) { label = found.label; break; }
+    }
+
+
+    const allDetections = [
+      { id: "cctv-1", suspect_id: id, camera_id: "CAM-ONG-MKT-01", camera_name: "Ongole Main Market Junction", camera_lat: 15.5071, camera_lon: 80.0512, detection_timestamp: "2024-01-02T14:52:00", confidence_score: 0.91, matched_tower_id: "TWR-ONG-001", correlation_status: "CONFIRMED", notes: "Subject detected 6 min before CDR tower registration. Movement consistent.", frame_image_path: "/cctv/cctv-1.jpg" },
+      { id: "cctv-2", suspect_id: id, camera_id: "CAM-CDD-NH16-01", camera_name: "Chirala NH-16 Toll Plaza Camera", camera_lat: 15.818, camera_lon: 80.352, detection_timestamp: "2024-01-02T15:05:00", confidence_score: 0.87, matched_tower_id: "TWR-CDD-001", correlation_status: "CONFIRMED", notes: "Subject detected at Chirala toll gate simultaneous with CDR tower TWR-CDD-001 co-location event", frame_image_path: "/cctv/cctv-2.jpg" },
+      { id: "cctv-3", suspect_id: id, camera_id: "CAM-ONG-BUS-01", camera_name: "Ongole APSRTC Bus Stand", camera_lat: 15.5042, camera_lon: 80.0465, detection_timestamp: "2024-01-05T02:19:00", confidence_score: 0.79, matched_tower_id: "TWR-ONG-002", correlation_status: "CONFIRMED", notes: "Night-time detection correlates with IMEI swap at 02:13", frame_image_path: "/cctv/cctv-3.jpg" },
+    ];
+
+    if (label === "Kalyan Chakravarthy") {
+      return Promise.resolve([allDetections[0], allDetections[2]] as unknown as T);
+    } else if (label === "Venkatesh Prasad") {
+      return Promise.resolve([allDetections[1]] as unknown as T);
+    }
+    return Promise.resolve([] as unknown as T);
+  }
+
+  // 15. GET /cases/{id}/cctv or /cctv/timeline
+  if ((cleanPath.startsWith("/cases/") && cleanPath.endsWith("/cctv")) || cleanPath === "/cctv/timeline" || cleanPath.startsWith("/cctv/timeline")) {
+    const list: any[] = [];
+    const findIdByLabel = (lbl: string) => {
+      for (const suspectsList of Object.values(memorySuspectsByCase)) {
+        const found = suspectsList.find((s) => s.label === lbl);
+        if (found) return found.id;
+      }
+      return null;
+    };
+
+    const kalyanId = findIdByLabel("Kalyan Chakravarthy") || "mock-kalyan-id";
+    const venkateshId = findIdByLabel("Venkatesh Prasad") || "mock-venkatesh-id";
+
+    list.push({ id: "cctv-1", suspect_id: kalyanId, suspect_label: "Kalyan Chakravarthy", camera_id: "CAM-ONG-MKT-01", camera_name: "Ongole Main Market Junction", camera_lat: 15.5071, camera_lon: 80.0512, detection_timestamp: "2024-01-02T14:52:00", confidence_score: 0.91, matched_tower_id: "TWR-ONG-001", correlation_status: "CONFIRMED", notes: "Subject detected 6 min before CDR tower registration. Movement consistent.", frame_image_path: "/cctv/cctv-1.jpg" });
+    list.push({ id: "cctv-2", suspect_id: venkateshId, suspect_label: "Venkatesh Prasad", camera_id: "CAM-CDD-NH16-01", camera_name: "Chirala NH-16 Toll Plaza Camera", camera_lat: 15.818, camera_lon: 80.352, detection_timestamp: "2024-01-02T15:05:00", confidence_score: 0.87, matched_tower_id: "TWR-CDD-001", correlation_status: "CONFIRMED", notes: "Subject detected at Chirala toll gate simultaneous with CDR tower TWR-CDD-001 co-location event", frame_image_path: "/cctv/cctv-2.jpg" });
+    list.push({ id: "cctv-3", suspect_id: kalyanId, suspect_label: "Kalyan Chakravarthy", camera_id: "CAM-ONG-BUS-01", camera_name: "Ongole APSRTC Bus Stand", camera_lat: 15.5042, camera_lon: 80.0465, detection_timestamp: "2024-01-05T02:19:00", confidence_score: 0.79, matched_tower_id: "TWR-ONG-002", correlation_status: "CONFIRMED", notes: "Night-time detection correlates with IMEI swap at 02:13", frame_image_path: "/cctv/cctv-3.jpg" });
+
+    return Promise.resolve(list as unknown as T);
+  }
+
+  // 16. GET /suspects (global registry watchlist)
+  if (cleanPath === "/suspects" && (!options || options.method === "GET" || !options.method)) {
+    const list: any[] = [];
+    for (const [caseId, suspectsList] of Object.entries(memorySuspectsByCase)) {
+      const c = memoryCases.find((x) => x.id === caseId);
+      const caseName = c ? c.name : "Unknown Case";
+      suspectsList.forEach((s) => {
+        let baseScore = 15;
+        let adjustment = 0;
+        let finalScore = 15;
+        let band = "LOW";
+        let priorCount = 0;
+        let cctvCount = 0;
+
+        if (s.label === "Kalyan Chakravarthy") {
+          baseScore = 72;
+          adjustment = 20;
+          finalScore = 92;
+          band = "CRITICAL";
+          priorCount = 2;
+          cctvCount = 2;
+        } else if (s.label === "Venkatesh Prasad") {
+          baseScore = 55;
+          adjustment = 8;
+          finalScore = 63;
+          band = "HIGH";
+          priorCount = 1;
+          cctvCount = 1;
+        } else if (s.label === "Subba Rao") {
+          baseScore = 41;
+          adjustment = 0;
+          finalScore = 41;
+          band = "MEDIUM";
+        }
+
+        list.push({
+          id: s.id,
+          label: s.label,
+          primary_msisdn: s.primary_msisdn,
+          case_id: caseId,
+          case_name: caseName,
+          base_score: baseScore,
+          adjustment: adjustment,
+          final_score: finalScore,
+          risk_band: band,
+          risk_band_color: band === "CRITICAL" ? "red" : band === "HIGH" ? "orange" : band === "MEDIUM" ? "amber" : "green",
+          prior_incidents_count: priorCount,
+          cctv_matches_count: cctvCount,
+          recommended_action: band === "CRITICAL" ? "Immediate escalation to SP/DIG level" : band === "HIGH" ? "Priority surveillance — daily reporting" : "Routine monitoring"
+        });
+      });
+    }
+    list.sort((a, b) => b.final_score - a.final_score);
+    return Promise.resolve(list as unknown as T);
+  }
+
+  // 17. GET /cases/{id}/summary
+  if (cleanPath.startsWith("/cases/") && cleanPath.endsWith("/summary")) {
+    const caseId = cleanPath.split("/")[2];
+    const c = memoryCases.find((x) => x.id === caseId);
+    const name = c ? c.name : "Operation Ongole Tobacco Smuggling Syndicate";
+    const suspectsList = memorySuspectsByCase[caseId] || [];
+    const susCount = suspectsList.length;
+    const narrative = (
+      `Case analysis of ${name} identified ${susCount} suspects across 3 districts. ` +
+      `Primary coordinator Kalyan Chakravarthy (HIGH RISK, Score: 92) shows 2 prior incidents ` +
+      `and was physically confirmed at 3 CCTV locations. A common handler (+91-9888000111) ` +
+      `was identified across suspects. Co-location events detected at TWR-ONG-001 (3 suspects) on 02 Jan 2024.`
+    );
+    return Promise.resolve({ narrative } as unknown as T);
   }
 
   return Promise.reject(new Error(`Endpoint not mock-supported: ${cleanPath}`));
@@ -493,6 +708,41 @@ export const api = {
     }
     return `${API_BASE}/suspects/${suspectId}/report.pdf`;
   },
+
+  getRecidivism: (suspectId: string) =>
+    request<any>(`/suspects/${suspectId}/recidivism`),
+
+  getSuspectCctv: async (suspectId: string) => {
+    const list = await request<any[]>(`/suspects/${suspectId}/cctv`);
+    return list.map(d => ({
+      ...d,
+      frame_image_path: d.frame_image_path ? (d.frame_image_path.startsWith('http') || d.frame_image_path.startsWith('data:') || d.frame_image_path.startsWith('/cctv/') ? d.frame_image_path : `${API_BASE}${d.frame_image_path}`) : null
+    }));
+  },
+
+  getCaseCctv: async (caseId: string) => {
+    const list = await request<any[]>(`/cases/${caseId}/cctv`);
+    return list.map(d => ({
+      ...d,
+      frame_image_path: d.frame_image_path ? (d.frame_image_path.startsWith('http') || d.frame_image_path.startsWith('data:') || d.frame_image_path.startsWith('/cctv/') ? d.frame_image_path : `${API_BASE}${d.frame_image_path}`) : null
+    }));
+  },
+
+  getCctvTimeline: async (caseId: string) => {
+    const list = await request<any[]>(`/cctv/timeline?case_id=${caseId}`);
+    return list.map(d => ({
+      ...d,
+      frame_image_path: d.frame_image_path ? (d.frame_image_path.startsWith('http') || d.frame_image_path.startsWith('data:') || d.frame_image_path.startsWith('/cctv/') ? d.frame_image_path : `${API_BASE}${d.frame_image_path}`) : null
+    }));
+  },
+
+  listAllSuspects: () =>
+    request<any[]>("/suspects"),
+
+  getCaseSummary: (caseId: string) =>
+    request<{ narrative: string }>(`/cases/${caseId}/summary`),
+
+  isMockMode: () => useMock,
 
   // Templates
   getCdrTemplateUrl: () => `${API_BASE}/templates/cdr`,

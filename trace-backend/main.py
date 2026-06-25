@@ -12,6 +12,9 @@ app = FastAPI(
     description="Criminal intelligence platform for CDR/IPDR analysis",
 )
 
+from fastapi.staticfiles import StaticFiles
+import os
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -19,12 +22,18 @@ app.add_middleware(
         "http://localhost:4173",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:4173",
-        "http://frontend:4173"
+        "http://frontend:4173",
+        "https://trace-prakasham.web.app",
+        "https://trace-prakasham.firebaseapp.com"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 app.include_router(cases.router)
 app.include_router(upload.router)

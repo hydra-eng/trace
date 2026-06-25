@@ -52,6 +52,11 @@ export default function SuspectCard({ suspect, events, onDelete }: Props) {
           </button>
         </div>
         <p className="text-[11px] font-mono text-zinc-500 mb-4 break-all">{suspect.primary_msisdn}</p>
+        {suspect.prior_incident_count !== undefined && suspect.prior_incident_count > 0 && (
+          <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-100 text-[10px] font-medium mb-3">
+            ⚠ {suspect.prior_incident_count} prior incident{suspect.prior_incident_count > 1 ? "s" : ""}
+          </div>
+        )}
       </div>
 
       {/* Anomaly score bar */}

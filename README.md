@@ -50,6 +50,8 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 | 8 | **Radial Search & Buffer Zones** | Maps crime scene lat/lon and returns all suspects present within a configurable radius |
 | 9 | **Auto-Populated Sec 65B Certificate** | Pre-fills and generates Indian Evidence Act Sec 65B electronic record authenticity certificates |
 | 10 | **Activity Audit Trail** | Pages recording officer actions, timestamps, and terminal IP coordinates for chain-of-custody |
+| 11 | **Live CCTV Surveillance Grid** | RTSP-connected IP camera feeds with real-time AI suspect-match overlays and bounding boxes |
+| 12 | **Geo-Intel Buffer Scan** | Crime-scene Haversine radius query to identify all suspects present near the incident location |
 
 ---
 
@@ -65,6 +67,8 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 | **Evidence Compliance** | Manual screenshots pasted into Word documents | Official court-ready PDF with auto-filled Section 65B Certificates |
 | **Activity Logging** | Excel files shared without logging modification trails | Tamper-proof, case-specific activity audit logs tracking officer IPs |
 | **Deployment** | Expensive servers or cloud subscriptions | One command on any workstation — fully offline |
+| **CCTV Surveillance** | Cameras monitored on separate standalone DVR systems | Unified CCTV grid with RTSP integration and live AI suspect-matching overlays |
+| **Scene-Radius Search** | Manual tower-by-tower CDR filtering in spreadsheets | Automated Haversine buffer scan — enter coordinates, get suspects instantly |
 
 ---
 
@@ -139,6 +143,35 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 > Every analytical capability and database transaction exposed as a documented REST endpoint.
 
 ![Swagger Docs](docs/assets/swagger_docs.png)
+
+---
+
+### 🎥 Live Surveillance Grid — CCTV Plugin Dashboard
+> A dedicated RTSP Stream Integration & AI Video Analytics module. Connects to physical CCTV cameras deployed across Prakasham District via DVR/NVR IP addresses. Each feed displays live video with AI-powered bounding box overlays that automatically detect and match suspects from the active case roster in real time.
+
+![CCTV Plugin Dashboard](docs/assets/cctv_plugin_dashboard.png)
+
+**Key CCTV Features:**
+- **AI Detect Active** — Real-time vehicle and person detection with confidence scores (e.g., `MATCH: Kalyan C. (91%)`)
+- **Multi-Camera Grid** — Side-by-side 1080p 30fps live feeds from multiple city cameras simultaneously
+- **Geo-Tagged Feeds** — Each camera card shows exact GPS coordinates and last-ping latency
+- **RTSP Stream Connector** — One-click `+ CONNECT STREAM` button to pair any IP camera, DVR, or NVR into the grid
+- **Sync Status** — Live `SYNCHRONIZED` badge confirms the camera feed is actively tied to the case database
+- **Camera Registry** — Cameras include: Ongole Main Market Junction (`CAM-ONG-MKT-01`), Chirala NH-16 Toll Plaza (`CAM-CDD-NH16-01`), Ongole APSRTC Bus Stand (`CAM-ONG-BUS-01`)
+
+---
+
+### 🗺️ Geo-Intel — Radial Search & Tower Buffer Zones
+> Crime-scene radius analysis engine. Enter coordinates and a radius in kilometres; TRACE performs a Haversine-formula buffer query to surface all suspects whose CDR tower pings fall within the defined zone — filterable by time window.
+
+![Geo-Intel Radial Search](docs/assets/geo_intel_page.png)
+
+**Key Geo-Intel Features:**
+- **Crime Scene Buffer Scan** — Input lat/lon and radius (km) to return suspects present at the scene
+- **Case-Scoped Query** — Scope the search to a specific case (e.g., FIR 124/2026 Tobacco Syndicate)
+- **Time-Window Filtering** — Optionally narrow results to a specific date/time range
+- **Haversine Engine** — Accurate great-circle distance calculation for Indian geographic coordinates
+- **Execute Buffer Scan** — One-click scan integrates with the full suspect CDR database
 
 ---
 
@@ -374,6 +407,9 @@ Full docs available at [http://localhost:8000/docs](http://localhost:8000/docs)
 | `GET` | `/suspects/{suspect_id}/profile` | Retrieve suspect profile, heatmap, and movement |
 | `GET` | `/cases/{case_id}/network` | Retrieve ReactFlow graph structure |
 | `GET` | `/report/pdf/{suspect_id}` | Export Section 65B IE Act PDF Brief |
+| `GET` | `/cctv/timeline/{case_id}` | Retrieve CCTV event timeline for a case |
+| `GET` | `/cctv/detections/{suspect_id}` | Get AI detection events linked to a suspect |
+| `POST` | `/geo/buffer-scan` | Execute Haversine radial search around crime scene coordinates |
 
 ---
 

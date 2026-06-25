@@ -5,6 +5,7 @@ import CaseDetailPage from "./pages/CaseDetailPage";
 import UploadPage from "./pages/UploadPage";
 import SuspectProfilePage from "./pages/SuspectProfilePage";
 import { DashboardPage, SuspectsPage, ReportsPage, SettingsPage, GeoIntelPage, AuditTrailPage } from "./pages/ExtraPages";
+import CctvPluginPage from "./pages/CctvPluginPage";
 import { api } from "./lib/api";
 import type { CaseOut } from "./lib/types";
 import {
@@ -19,6 +20,7 @@ import {
   Loader2,
   MapPin,
   Shield,
+  Video,
 } from "lucide-react";
 
 function TraceBootScreen({ onComplete }: { onComplete: () => void }) {
@@ -94,7 +96,7 @@ function TraceBootScreen({ onComplete }: { onComplete: () => void }) {
 
         {/* Prakasham Police identity */}
         <span className="text-[14px] font-semibold tracking-widest text-slate-700 font-sans uppercase">
-          Prakasham District Police
+          PRAKASHAM CID INTELLIGENCE WORKSTATION
         </span>
         <span className="text-[11px] tracking-wider text-slate-400 mt-1 font-sans">
           Andhra Pradesh
@@ -127,6 +129,12 @@ function TraceBootScreen({ onComplete }: { onComplete: () => void }) {
         <div className="h-6 mt-4 flex items-center justify-center gap-2 font-mono text-[10px] text-slate-500">
           <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 shrink-0" />
           <span>{statusText}</span>
+        </div>
+
+        {/* Loaded modules indicators */}
+        <div className="w-64 text-[8px] font-mono text-zinc-500 mt-2 space-y-0.5 text-left border-t border-slate-100 pt-2">
+          {progress > 35 && <div>[✓] CCTV Detection Module ............ LOADED</div>}
+          {progress > 60 && <div>[✓] Recidivism Prediction Engine ...... LOADED</div>}
         </div>
 
         {/* Classification label */}
@@ -211,7 +219,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             </div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-[0.12em] font-sans">TRACE</h1>
             <p className="text-[10px] text-slate-500 mt-1.5 uppercase tracking-[0.18em] text-center font-mono leading-relaxed">
-              Telecom Record Analysis<br />for Criminal Examination
+              Criminal Intelligence & Surveillance Division<br />Prakasham District Police · Andhra Pradesh
             </p>
           </div>
 
@@ -294,7 +302,7 @@ function NavBar({ onLogout }: { onLogout: () => void }) {
         </Link>
         <div className="h-6 w-[1px] bg-zinc-200" />
         <span className="text-[10px] text-zinc-700 font-bold uppercase tracking-wider">
-          Prakasham District Police
+          Prakasham District Police, CID Wing
         </span>
         <span className="text-[9px] text-zinc-400 uppercase tracking-wide font-mono hidden md:block">
           · Criminal Investigation Dept, AP
@@ -328,6 +336,7 @@ function IconRail({
     { label: "Dashboard", path: "/", icon: LayoutDashboard },
     { label: "Cases", path: "/cases", icon: FolderOpen },
     { label: "Suspects", path: "/suspects", icon: Users },
+    { label: "CCTV Plugin", path: "/cctv-plugin", icon: Video },
     { label: "Reports", path: "/reports", icon: FileText },
     { label: "Geo Intel", path: "/geo-intel", icon: MapPin },
     { label: "Audit Trail", path: "/audit", icon: Shield },
@@ -358,7 +367,7 @@ function IconRail({
                 to={item.path}
                 className={`w-full py-2 flex items-center justify-center border-l-2 transition-all ${
                   active
-                    ? "text-blue-400 border-l-blue-500 bg-gray-800/50"
+                    ? "text-indigo-400 border-l-indigo-500 bg-gray-800/50"
                     : "text-gray-400 border-l-transparent hover:text-gray-200 hover:bg-gray-800"
                 }`}
               >
@@ -409,7 +418,7 @@ function Sidebar({
             <button
               key={c.id}
               onClick={() => navigate(`/cases/${c.id}`)}
-              className="w-full text-left p-2.5 border border-slate-200 rounded-lg hover:border-blue-200 transition-colors flex flex-col gap-1 relative bg-white"
+              className="w-full text-left p-2.5 border border-slate-200 rounded-lg hover:border-indigo-200 transition-colors flex flex-col gap-1 relative bg-white"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-slate-800 truncate" title={c.name}>
@@ -527,6 +536,7 @@ export default function App() {
                     <Route path="/suspects/:suspectId" element={<SuspectProfilePage />} />
                     <Route path="/suspects" element={<SuspectsPage />} />
                     <Route path="/reports" element={<ReportsPage />} />
+                    <Route path="/cctv-plugin" element={<CctvPluginPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/geo-intel" element={<GeoIntelPage />} />
                     <Route path="/audit" element={<AuditTrailPage />} />

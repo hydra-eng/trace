@@ -45,7 +45,7 @@
   }
 
   .table-row-divider {
-    @apply border-b border-[rgba(59,130,246,0.08)] last:border-0;
+    @apply border-b border-[rgba(67,56,202,0.08)] last:border-0;
   }
 
   .mono {
@@ -63,8 +63,8 @@
     @apply border border-zinc-950 hover:border-zinc-800;
   }
 
-  button.bg-blue-600 {
-    @apply border border-blue-700 hover:border-blue-800;
+  button.bg-indigo-600 {
+    @apply border border-indigo-700 hover:border-indigo-800;
   }
 
   button.bg-red-600 {
@@ -75,7 +75,7 @@
     @apply border border-green-700 hover:border-green-800;
   }
 
-  button.bg-green-50, button.bg-blue-50, button.bg-slate-50, button.bg-white {
+  button.bg-green-50, button.bg-indigo-50, button.bg-slate-50, button.bg-white {
     @apply border border-zinc-200 hover:border-zinc-300;
   }
 

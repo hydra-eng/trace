@@ -13,6 +13,8 @@ export interface SuspectOut {
   primary_msisdn: string;
   anomaly_score?: number;
   event_count?: number;
+  prior_incident_count?: number;
+  cctv_matches_count?: number;
 }
 
 export interface UploadResponse {
@@ -50,6 +52,8 @@ export interface GraphNode {
   tower_name?: string;
   tower_lat?: number;
   tower_lon?: number;
+  centrality?: number;
+  centrality_label?: string;
 }
 
 export interface GraphEdge {
@@ -112,6 +116,7 @@ export interface SuspectProfileOut {
   events: EventOut[];
   call_heatmap_data: CallHeatmapRow[];
   movement_data: MovementPoint[];
+  recidivism_data?: any;
 }
 
 export interface SharedContact {

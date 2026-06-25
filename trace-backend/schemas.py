@@ -68,6 +68,8 @@ class GraphNode(BaseModel):
     label: str
     node_type: str           # "suspect" | "contact"
     suspect_id: Optional[str] = None
+    centrality: Optional[float] = None
+    centrality_label: Optional[str] = None
 
 
 class GraphEdge(BaseModel):
@@ -132,3 +134,4 @@ class SuspectProfileOut(BaseModel):
     events: List[EventOut] = []
     call_heatmap_data: List[CallHeatmapRow] = []
     movement_data: List[MovementPoint] = []
+    recidivism_data: Optional[Dict[str, Any]] = None

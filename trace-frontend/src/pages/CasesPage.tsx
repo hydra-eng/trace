@@ -71,7 +71,7 @@ export default function CasesPage() {
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
             <span className="text-[12px] text-slate-500">
-              Prakasham District Police — Criminal Intelligence Division
+              Prakasham District Police, CID Wing — Criminal Intelligence & Surveillance Division
             </span>
           </div>
           <p className="text-sm text-zinc-500">
@@ -155,7 +155,7 @@ export default function CasesPage() {
               key={c.id}
               id={`case-card-${c.id}`}
               onClick={() => navigate(`/cases/${c.id}`)}
-              className="card border border-slate-200 text-left hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer group flex flex-col justify-between"
+              className="card border border-slate-200 text-left hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer group flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-start justify-between mb-4">

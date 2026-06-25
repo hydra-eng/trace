@@ -225,9 +225,24 @@ function drawTable(
     xCursor = startX + 2;
     row.forEach((cell, ci) => {
       const cellText = String(cell ?? "—");
+      if (cellText === "CONFIRMED") {
+        setTextColor(doc, [22, 163, 74]);
+        bold(doc);
+      } else if (cellText === "PROBABLE") {
+        setTextColor(doc, [217, 119, 6]);
+        bold(doc);
+      } else if (cellText === "UNMATCHED") {
+        setTextColor(doc, [75, 85, 99]);
+        bold(doc);
+      } else {
+        setTextColor(doc, [0, 0, 0]);
+        normal(doc);
+      }
       doc.text(cellText, xCursor, y + 3.8, {
         maxWidth: widths[ci] - 3,
       });
+      setTextColor(doc, [0, 0, 0]);
+      normal(doc);
       xCursor += widths[ci];
     });
 
@@ -243,7 +258,7 @@ function drawTable(
 }
 
 // ─── Main Export ─────────────────────────────────────────────────────────────
-export function generatePdfReport(profile: any, caseName?: string): void {
+export function generatePdfReport(profile: any, caseName?: string, cctvDetections: any[] = []): void {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   const suspect = profile?.suspect ?? {};
@@ -731,8 +746,93 @@ export function generatePdfReport(profile: any, caseName?: string): void {
   const currentAlertRowsCount = alertRows.slice(0, 4).length;
   doc.rect(14.82, s2y - (currentAlertRowsCount * 5.2) - 6, 180.27, (currentAlertRowsCount * 5.2) + 6, "S");
 
+  // Repeat Offender Assessment Section
+  const recData = profile?.recidivism_data || {
+    base_score: anomalyScore,
+    recidivism_adjustment: 0,
+    final_score: anomalyScore,
+    prior_incident_count: 0,
+    risk_band: riskLevel.replace(" RISK", ""),
+    risk_band_color: riskLevel.includes("HIGH") ? "red" : riskLevel.includes("MEDIUM") ? "amber" : "green",
+    recommended_action: "Routine monitoring",
+    priors: []
+  };
+
+  const priors = recData.priors || [];
+  const priorsCount = recData.prior_incident_count || priors.length || 0;
+  const adjustment = recData.recidivism_adjustment || 0;
+  const finalScore = recData.final_score || (anomalyScore + adjustment);
+  const roBand = recData.risk_band || "LOW";
+  let roBandColor = [22, 163, 74];
+  if (roBand === "CRITICAL") roBandColor = [220, 38, 38];
+  else if (roBand === "HIGH") roBandColor = [249, 115, 22];
+  else if (roBand === "MEDIUM") roBandColor = [217, 119, 6];
+
+  let sroy = s2y + 3;
+  sroy = sectionHeading(doc, sroy, "REPEAT OFFENDER ASSESSMENT");
+
+  const roRows = [
+    ["AI Risk Score (Current Case)", `${recData.base_score}/100`],
+    ["Recidivism Adjustment", `+${adjustment} (${priorsCount} prior incident${priorsCount !== 1 ? "s" : ""})`],
+    ["FINAL COMPOSITE RISK SCORE", `${finalScore}/100 — ${roBand}`]
+  ];
+
+  const roStartX = 14.82;
+  roRows.forEach((row, ri) => {
+    const isLast = ri === 2;
+    setFill(doc, ri % 2 === 1 ? C.bgLight : C.white);
+    doc.rect(roStartX, sroy, 180.27, 5.2, "F");
+    setDraw(doc, C.border);
+    doc.rect(roStartX, sroy, 180.27, 5.2, "S");
+    
+    if (isLast) {
+      bold(doc);
+      setTextColor(doc, roBandColor as [number, number, number]);
+    } else {
+      normal(doc);
+      setTextColor(doc, [0, 0, 0]);
+    }
+    size(doc, 7.5);
+    doc.text(row[0], roStartX + 2, sroy + 3.8);
+    doc.text(row[1], roStartX + 70 + 2, sroy + 3.8);
+    
+    sroy += 5.2;
+  });
+  setDraw(doc, [0, 0, 0]);
+  doc.setLineWidth(0.4);
+  doc.rect(roStartX, sroy - 15.6, 180.27, 15.6, "S");
+  
+  sroy += 1.5;
+
+  if (priors && priors.length > 0) {
+    bold(doc);
+    size(doc, 8);
+    setTextColor(doc, [0, 0, 0]);
+    doc.text("Prior Incident Record", roStartX, sroy + 3);
+    sroy += 5;
+    
+    const priorHeaders = ["Case Reference", "Offence", "Date", "Jurisdiction", "Outcome"];
+    const priorColWidths = [45, 45, 20, 25, 45.27];
+    const priorRowsData = priors.map((p: any) => [
+      p.case_reference || p.case_ref || "",
+      p.offence_type || p.offence || "",
+      p.incident_date ? formatDateShort(p.incident_date) : "",
+      p.district || "",
+      p.outcome || ""
+    ]);
+    
+    sroy = drawTable(doc, sroy, priorHeaders, priorColWidths, priorRowsData);
+  } else {
+    italic(doc);
+    size(doc, 7.5);
+    setTextColor(doc, C.muted);
+    doc.text("No prior incidents registered against this subject in the TRACE database.", roStartX, sroy + 3);
+    sroy += 5.5;
+  }
+  sroy += 2;
+
   // Section 3 — CALL BEHAVIOUR METRICS
-  let s3y = s2y + 3;
+  let s3y = sroy;
   s3y = sectionHeading(doc, s3y, "3. CALL BEHAVIOUR METRICS");
 
   // Draw Left Table Header
@@ -1067,6 +1167,39 @@ export function generatePdfReport(profile: any, caseName?: string): void {
       s5y += 2;
     });
   }
+
+  // CCTV SURVEILLANCE DETECTIONS Section
+  s5y = sectionHeading(doc, s5y, "CCTV SURVEILLANCE DETECTIONS");
+  italic(doc);
+  size(doc, 7.5);
+  setTextColor(doc, C.muted);
+  const cctvNoteText = "CCTV detections are derived from video analytics processing of available surveillance footage. Face match confidence scores are provided by the computer vision pipeline. All detections have been correlated against CDR tower records for temporal verification.";
+  const cctvNoteLines = doc.splitTextToSize(cctvNoteText, 180.27);
+  doc.text(cctvNoteLines, 14.82, s5y + 3);
+  s5y += (cctvNoteLines.length * 3.8) + 4;
+
+  const cctvList = cctvDetections || [];
+  if (cctvList.length > 0) {
+    const cctvHeaders = ["Camera ID", "Location", "Detection Time", "Face Match %", "CDR Correlation", "Status"];
+    const cctvColWidths = [25, 45, 30, 22, 38, 20.27];
+    const cctvRowsData = cctvList.map((d: any) => [
+      d.camera_id || "",
+      d.camera_name || "",
+      d.detection_timestamp ? formatDateShort(d.detection_timestamp) + " " + new Date(d.detection_timestamp).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: false }) : "",
+      d.confidence_score ? `${Math.round(d.confidence_score * 100)}%` : "—",
+      d.notes || "—",
+      d.correlation_status || "—"
+    ]);
+    
+    s5y = drawTable(doc, s5y, cctvHeaders, cctvColWidths, cctvRowsData);
+  } else {
+    italic(doc);
+    size(doc, 7.5);
+    setTextColor(doc, C.muted);
+    doc.text("No CCTV detection records available for this subject.", 14.82, s5y + 3);
+    s5y += 5.5;
+  }
+  s5y += 2;
 
   // Section 8 — OTT APPLICATION USAGE
   s5y = sectionHeading(doc, s5y, "8. OTT APPLICATION USAGE — INTERNET PROTOCOL DETAIL RECORD ANALYSIS");

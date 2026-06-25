@@ -56,6 +56,7 @@ class Suspect(Base):
     case = relationship("Case", back_populates="suspects")
     cdr_records = relationship("CDRRecord", back_populates="suspect", cascade="all, delete-orphan")
     ipdr_records = relationship("IPDRRecord", back_populates="suspect", cascade="all, delete-orphan")
+    cctv_detections = relationship("CCTVDetection", back_populates="suspect", cascade="all, delete-orphan")
 
 
 class CDRRecord(Base):
@@ -126,3 +127,33 @@ class AuditLog(Base):
     # Structured extra detail
     detail = Column(JSONColumn, nullable=True, default=dict)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class PriorIncident(Base):
+    __tablename__ = "prior_incidents"
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    msisdn = Column(String(50), nullable=False, index=True)
+    case_reference = Column(Text)        # e.g. "FIR 87/2022 — Nellore District"
+    offence_type = Column(Text)          # e.g. "Illicit Tobacco Smuggling"
+    incident_date = Column(DateTime)
+    district = Column(Text)
+    outcome = Column(Text)               # "Convicted" / "Acquitted" / "Charge Sheet Filed" / "FIR Registered"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CCTVDetection(Base):
+    __tablename__ = "cctv_detections"
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    suspect_id = Column(String(36), ForeignKey("suspects.id"), nullable=True)  # nullable — may be unidentified
+    camera_id = Column(Text, nullable=False)     # e.g. "CAM-ONG-MKT-01"
+    camera_name = Column(Text)                   # "Ongole Main Market Junction"
+    camera_lat = Column(Float)
+    camera_lon = Column(Float)
+    detection_timestamp = Column(DateTime, nullable=False)
+    confidence_score = Column(Float)               # 0.0–1.0 face match confidence
+    frame_image_path = Column(Text)              # path to stored frame PNG
+    matched_tower_id = Column(Text, nullable=True)  # tower that fired within ±15 min
+    correlation_status = Column(Text)            # "CONFIRMED" / "PROBABLE" / "UNMATCHED"
+    notes = Column(Text)
+
+    suspect = relationship("Suspect", back_populates="cctv_detections")

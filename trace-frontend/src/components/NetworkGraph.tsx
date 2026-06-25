@@ -67,22 +67,31 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
 function SuspectNode({ data }: NodeProps) {
   const isHighlighted = data.isSearchMatch;
   const isDimmed = data.isSearchActive && !isHighlighted;
+  const hasCentrality = !!data.centrality_label;
+  const height = hasCentrality ? 46 : 38;
 
   return (
     <div
       style={{
         width: 140,
-        height: 38,
+        height: height,
         transition: "opacity 0.2s",
         opacity: isDimmed ? 0.35 : 1,
-        border: isHighlighted ? "2px solid #06b6d4" : "1.5px solid #2563eb",
+        border: isHighlighted ? "2px solid #06b6d4" : "1.5px solid #4338CA",
       }}
-      className="bg-blue-50 text-blue-950 rounded px-2.5 py-1 flex flex-col items-center justify-center font-sans select-none shadow-sm"
+      className="bg-indigo-50 text-indigo-950 rounded px-2.5 py-1 flex flex-col items-center justify-center font-sans select-none shadow-sm"
     >
-      <Handle type="target" position={Position.Left} style={{ background: "#2563eb", width: 5, height: 5 }} />
+      <Handle type="target" position={Position.Left} style={{ background: "#4338CA", width: 5, height: 5 }} />
       <span className="text-[10px] font-bold truncate w-full text-center">{data.label}</span>
-      <span className="text-[7px] font-mono text-blue-500/80 truncate w-full text-center">{data.msisdn}</span>
-      <Handle type="source" position={Position.Right} style={{ background: "#2563eb", width: 5, height: 5 }} />
+      <span className="text-[7px] font-mono text-indigo-500/80 truncate w-full text-center">{data.msisdn}</span>
+      {data.centrality_label && (
+        <span className={`text-[7px] font-extrabold px-1.5 py-0.2 mt-0.5 rounded-sm uppercase tracking-wider ${
+          data.centrality_label === "Hub" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+        }`}>
+          {data.centrality_label}
+        </span>
+      )}
+      <Handle type="source" position={Position.Right} style={{ background: "#4338CA", width: 5, height: 5 }} />
     </div>
   );
 }
@@ -114,11 +123,14 @@ function HandlerNode({ data }: NodeProps) {
 function CommonContactNode({ data }: NodeProps) {
   const isHighlighted = data.isSearchMatch;
   const isDimmed = data.isSearchActive && !isHighlighted;
+  const hasCentrality = !!data.centrality_label;
+  const height = hasCentrality ? 46 : 38;
+
   return (
     <div
       style={{
         width: 140,
-        height: 38,
+        height: height,
         transition: "opacity 0.2s",
         opacity: isDimmed ? 0.35 : 1,
         border: isHighlighted ? "2px solid #06b6d4" : "1.5px dashed #6366f1",
@@ -128,6 +140,13 @@ function CommonContactNode({ data }: NodeProps) {
       <Handle type="target" position={Position.Left} style={{ background: "#6366f1", width: 5, height: 5 }} />
       <span className="text-[10px] font-mono font-medium truncate w-full text-center">{data.label}</span>
       <span className="text-[7px] font-bold text-indigo-500 uppercase tracking-widest truncate w-full text-center">COMMON LINK</span>
+      {data.centrality_label && (
+        <span className={`text-[7px] font-extrabold px-1.5 py-0.2 mt-0.5 rounded-sm uppercase tracking-wider ${
+          data.centrality_label === "Hub" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+        }`}>
+          {data.centrality_label}
+        </span>
+      )}
       <Handle type="source" position={Position.Right} style={{ background: "#6366f1", width: 5, height: 5 }} />
     </div>
   );
@@ -137,11 +156,14 @@ function CommonContactNode({ data }: NodeProps) {
 function StandardContactNode({ data }: NodeProps) {
   const isHighlighted = data.isSearchMatch;
   const isDimmed = data.isSearchActive && !isHighlighted;
+  const hasCentrality = !!data.centrality_label;
+  const height = hasCentrality ? 46 : 36;
+
   return (
     <div
       style={{
         width: 120,
-        height: 36,
+        height: height,
         transition: "opacity 0.2s",
         opacity: isDimmed ? 0.35 : 1,
         border: isHighlighted ? "2px solid #06b6d4" : "1px solid #64748b",
@@ -151,6 +173,13 @@ function StandardContactNode({ data }: NodeProps) {
       <Handle type="target" position={Position.Left} style={{ background: "#64748b", width: 5, height: 5 }} />
       <span className="text-[10px] font-mono font-medium truncate w-full text-center">{data.label}</span>
       <span className="text-[7px] text-slate-400 uppercase tracking-wider truncate w-full text-center">CONTACT</span>
+      {data.centrality_label && (
+        <span className={`text-[7px] font-extrabold px-1.5 py-0.2 mt-0.5 rounded-sm uppercase tracking-wider ${
+          data.centrality_label === "Hub" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+        }`}>
+          {data.centrality_label}
+        </span>
+      )}
       <Handle type="source" position={Position.Right} style={{ background: "#64748b", width: 5, height: 5 }} />
     </div>
   );
@@ -373,6 +402,8 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
           tower_name: n.tower_name,
           tower_lat: n.tower_lat,
           tower_lon: n.tower_lon,
+          centrality: n.centrality,
+          centrality_label: n.centrality_label,
           isSearchActive,
           isSearchMatch: isSearchActive && (
             n.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -547,7 +578,7 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
               type="checkbox"
               checked={callWeight}
               onChange={(e) => setCallWeight(e.target.checked)}
-              className="w-3.5 h-3.5 accent-blue-600 bg-white border-slate-300 rounded cursor-pointer"
+              className="w-3.5 h-3.5 accent-indigo-600 bg-white border-slate-300 rounded cursor-pointer"
             />
             Call Weight
           </label>
@@ -582,7 +613,7 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
               placeholder="Search MSISDN/Tower..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white border border-slate-200 rounded pl-7 pr-2.5 py-1 text-[11px] text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 w-44 font-mono"
+              className="bg-white border border-slate-200 rounded pl-7 pr-2.5 py-1 text-[11px] text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 w-44 font-mono"
             />
             {searchQuery && (
               <button
@@ -617,7 +648,7 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
                           return next;
                         });
                       }}
-                      className="w-3.5 h-3.5 accent-blue-600 bg-white border-slate-300 rounded"
+                      className="w-3.5 h-3.5 accent-indigo-600 bg-white border-slate-300 rounded"
                     />
                     {n.label}
                   </label>
@@ -633,7 +664,7 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
         <h5 className="font-semibold text-slate-800 mb-2 border-b border-slate-100 pb-1">Legend</h5>
         <div className="flex flex-col gap-2">
           {[
-            { color: "border-blue-500 bg-blue-50", label: "Suspect Node" },
+            { color: "border-indigo-500 bg-indigo-50", label: "Suspect Node" },
             { color: "border-red-600 bg-red-50", label: "Handler Node" },
             { color: "border-dashed border-indigo-500 bg-indigo-50", label: "Common Contact" },
             { color: "border-slate-400 bg-slate-50", label: "Standard Contact" },
@@ -698,7 +729,7 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
               {selectedNode.suspectId && (
                 <Link
                   to={`/suspects/${selectedNode.suspectId}`}
-                  className="mt-2 block text-center py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold shadow transition-colors"
+                  className="mt-2 block text-center py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold shadow transition-colors"
                 >
                   View profile →
                 </Link>
