@@ -56,17 +56,25 @@ async function fetchOsrmRoute(
   points: [number, number][]
 ): Promise<[number, number][]> {
   if (points.length < 2) return points;
+  
+  // Abort controller for a low 800ms timeout to keep map load fast
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 800);
+
   try {
     const coordStr = points.map(([lon, lat]) => `${lon},${lat}`).join(";");
     const res = await fetch(
-      `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`
+      `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`,
+      { signal: controller.signal }
     );
+    clearTimeout(timeoutId);
     if (!res.ok) throw new Error("OSRM error");
     const data = await res.json();
     if (data.routes && data.routes[0]) {
       return data.routes[0].geometry.coordinates as [number, number][];
     }
-  } catch {
+  } catch (err) {
+    clearTimeout(timeoutId);
     // fallback to straight lines
   }
   return points;
@@ -281,35 +289,44 @@ export default function MovementMap({
 
   // ── Fetch OSRM road routes ────────────────────────────────────────────────
   const fetchRoutes = useCallback(async () => {
-    const routeResults: Record<string, [number, number][]> = {};
-    await Promise.all(
-      Object.entries(suspectGroups).map(async ([label, pts]) => {
-        const sorted = [...pts].sort((a, b) => a.timestamp - b.timestamp);
-        if (sorted.length < 2) {
-          routeResults[label] = sorted.map((p) => [p.lon, p.lat]);
-          return;
+    // 1. Instantly populate with straight line paths for speed
+    const initialRoutes: Record<string, [number, number][]> = {};
+    Object.entries(suspectGroups).forEach(([label, pts]) => {
+      const sorted = [...pts].sort((a, b) => a.timestamp - b.timestamp);
+      initialRoutes[label] = sorted.map((p) => [p.lon, p.lat]);
+    });
+    setSuspectRoutes(initialRoutes);
+
+    // 2. Fetch OSRM routes progressively in the background
+    Object.entries(suspectGroups).forEach(async ([label, pts]) => {
+      const sorted = [...pts].sort((a, b) => a.timestamp - b.timestamp);
+      if (sorted.length < 2) return;
+
+      // Deduplicate consecutive identical positions
+      const unique: [number, number][] = [];
+      sorted.forEach((p) => {
+        const coords: [number, number] = [p.lon, p.lat];
+        if (
+          unique.length === 0 ||
+          unique[unique.length - 1][0] !== coords[0] ||
+          unique[unique.length - 1][1] !== coords[1]
+        ) {
+          unique.push(coords);
         }
-        // Deduplicate consecutive identical positions
-        const unique: [number, number][] = [];
-        sorted.forEach((p) => {
-          const coords: [number, number] = [p.lon, p.lat];
-          if (
-            unique.length === 0 ||
-            unique[unique.length - 1][0] !== coords[0] ||
-            unique[unique.length - 1][1] !== coords[1]
-          ) {
-            unique.push(coords);
-          }
-        });
-        // OSRM max 100 waypoints — sample if needed
-        const sampled =
-          unique.length > 25
-            ? unique.filter((_, i) => i % Math.ceil(unique.length / 25) === 0)
-            : unique;
-        routeResults[label] = await fetchOsrmRoute(sampled);
-      })
-    );
-    setSuspectRoutes(routeResults);
+      });
+
+      // OSRM max 100 waypoints — sample if needed
+      const sampled =
+        unique.length > 25
+          ? unique.filter((_, i) => i % Math.ceil(unique.length / 25) === 0)
+          : unique;
+
+      const osrmRoute = await fetchOsrmRoute(sampled);
+      setSuspectRoutes((prev) => ({
+        ...prev,
+        [label]: osrmRoute,
+      }));
+    });
   }, [movements]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -447,6 +464,45 @@ export default function MovementMap({
               }}
             />
           )}
+
+          {/* ── Suspect movement pings (path dots) ── */}
+          {movements.map((m, idx) => {
+            const label = (m as any).suspect_label || suspectLabel || "Active Suspect";
+            const hex = SUSPECT_HEX_COLORS[label] || "#3b82f6";
+            const towerName = ALL_TOWERS.find((t) => t.id === m.tower_id)?.name || m.tower_id;
+            const timeStr = new Date(m.timestamp).toLocaleString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            return (
+              <MapMarker
+                key={`ping-${idx}-${m.timestamp}`}
+                longitude={m.lon}
+                latitude={m.lat}
+              >
+                <div
+                  className="rounded-full border border-white cursor-pointer shadow-xs transition-transform duration-100 hover:scale-150"
+                  style={{
+                    width: 7,
+                    height: 7,
+                    backgroundColor: hex,
+                  }}
+                />
+                <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2 text-[10px] shadow-lg font-sans min-w-[150px] z-50">
+                  <div className="font-bold" style={{ color: hex }}>{label}</div>
+                  <div className="text-[9px] text-slate-300 mt-0.5">📍 CDR Registration</div>
+                  <div className="border-t border-slate-700 my-1" />
+                  <div className="space-y-0.5 text-slate-200">
+                    <div><strong>Tower:</strong> {towerName}</div>
+                    <div><strong>Time:</strong> <span className="font-mono">{timeStr}</span></div>
+                    <div><strong>Coords:</strong> <span className="font-mono text-slate-400">{m.lat.toFixed(4)}, {m.lon.toFixed(4)}</span></div>
+                  </div>
+                </MarkerTooltip>
+              </MapMarker>
+            );
+          })}
 
           {/* ── Cell tower markers ── */}
           {towers.map((tower) => (
