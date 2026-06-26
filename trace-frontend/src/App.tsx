@@ -6,7 +6,7 @@ import UploadPage from "./pages/UploadPage";
 import SuspectProfilePage from "./pages/SuspectProfilePage";
 import { DashboardPage, SuspectsPage, ReportsPage, SettingsPage, GeoIntelPage, AuditTrailPage } from "./pages/ExtraPages";
 import CctvPluginPage from "./pages/CctvPluginPage";
-import { api } from "./lib/api";
+import { api, API_BASE } from "./lib/api";
 import type { CaseOut } from "./lib/types";
 import {
   LayoutDashboard,
@@ -153,13 +153,39 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) return;
     setLoading(true);
     setError("");
 
-    setTimeout(() => {
+    try {
+      // Try backend auth first
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem("trace_token", data.access_token);
+        localStorage.setItem("trace_user", JSON.stringify(data.user));
+        localStorage.setItem("trace_logged_in", "true");
+        onLogin();
+        navigate("/");
+      } else {
+        // Fallback to hardcoded check for offline/demo mode
+        if (username === "investigator" && password === "PrakasamPolice_2026!") {
+          localStorage.setItem("trace_logged_in", "true");
+          onLogin();
+          navigate("/");
+        } else {
+          setError("Invalid secure credentials.");
+        }
+      }
+    } catch {
+      // Backend unreachable — use hardcoded check for demo mode
       if (username === "investigator" && password === "PrakasamPolice_2026!") {
         localStorage.setItem("trace_logged_in", "true");
         onLogin();
@@ -167,8 +193,8 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
       } else {
         setError("Invalid secure credentials.");
       }
-      setLoading(false);
-    }, 800);
+    }
+    setLoading(false);
   };
 
   return (
@@ -288,6 +314,10 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 }
 
 function NavBar({ onLogout }: { onLogout: () => void }) {
+  const user = (() => {
+    try { return JSON.parse(localStorage.getItem("trace_user") || "{}"); } catch { return {}; }
+  })();
+  const displayName = user.display_name || "Inspector Sharma";
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-zinc-200 px-6 py-0 flex items-center justify-between h-12 shrink-0 font-sans">
       <div className="flex items-center gap-3">
@@ -310,7 +340,7 @@ function NavBar({ onLogout }: { onLogout: () => void }) {
       </div>
       <div className="flex items-center gap-4 text-xs font-mono">
         <span className="text-zinc-600 bg-zinc-100 border border-zinc-200 px-2.5 py-1 rounded">
-          Session: Inspector Sharma
+          Session: {displayName}
         </span>
         <button
           onClick={onLogout}
@@ -463,6 +493,8 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem("trace_logged_in");
+    localStorage.removeItem("trace_token");
+    localStorage.removeItem("trace_user");
     setIsLoggedIn(false);
   };
 

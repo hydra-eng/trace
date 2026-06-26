@@ -479,7 +479,8 @@ export function SettingsPage() {
     setBackendStatus("checking");
     const t0 = Date.now();
     try {
-      const res = await fetch("http://localhost:8000/health", { signal: AbortSignal.timeout(4000) });
+      const apiBase = `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${apiBase}/health`, { signal: AbortSignal.timeout(4000) });
       if (res.ok) {
         setBackendPing(Date.now() - t0);
         setBackendStatus("online");
@@ -653,14 +654,14 @@ export function SettingsPage() {
                 <div className="bg-indigo-50 border border-indigo-200 rounded p-3">
                   <p className="text-[10px] font-mono text-indigo-700 font-semibold mb-1">OFFLINE DEMO MODE ACTIVE</p>
                   <p className="text-[10px] text-indigo-600 leading-relaxed font-sans">
-                    The local server at <code className="font-mono bg-indigo-100 text-indigo-800 px-1 rounded">http://localhost:8000</code> was not detected. 
+                    The local server at <code className="font-mono bg-indigo-100 text-indigo-800 px-1 rounded">{`http://${window.location.hostname}:8000`}</code> was not detected. 
                     TRACE has activated the serverless fallback. All analytics, mapping, and database functions are simulated in-browser with preloaded Andhra Pradesh cyber cell data.
                   </p>
                 </div>
               ) : backendStatus === "offline" && (
                 <div className="bg-red-50 border border-red-200 rounded p-3">
                   <p className="text-[10px] font-mono text-red-700 font-semibold mb-1">CONNECTION FAILED</p>
-                  <p className="text-[10px] text-red-600">Cannot reach http://localhost:8000. Start the backend server:</p>
+                  <p className="text-[10px] text-red-600">Cannot reach {`http://${window.location.hostname}:8000`}. Start the backend server:</p>
                   <code className="block mt-1.5 text-[10px] bg-red-100 text-red-800 p-1.5 rounded font-mono">
                     uvicorn main:app --reload
                   </code>
@@ -668,7 +669,7 @@ export function SettingsPage() {
               )}
 
               <div className="border-t border-zinc-50 pt-3 space-y-1">
-                {field("Endpoint", "http://localhost:8000", true)}
+                {field("Endpoint", `http://${window.location.hostname}:8000`, true)}
                 {field("TRACE Version", "v1.0.0", true)}
                 {field("Database", "SQLite · trace.db", true)}
                 {field("CORS Origin", "localhost:5173", true)}

@@ -1,53 +1,58 @@
-# Root .gitignore for TRACE platform repository
+# ═══════════════════════════════════════════════════════════════
+# TRACE .gitignore
+# ═══════════════════════════════════════════════════════════════
 
-# System & OS Files
-.DS_Store
-Thumbs.db
-*.tmp
-*.temp
-.tempmediaStorage/
-
-# Virtual Environments & Python cache
-venv/
-.venv/
-env/
+# ── Environment files (sensitive — never commit) ────────────
 .env
+.env.local
+.env.*.local
+!example.env
+
+# ── Virtual environments ────────────────────────────────────
+trace-backend/.venv/
+trace-frontend/.venv/
+.venv/
+venv/
+env/
+
+# ── Python cache ────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
-.coverage
-htmlcov/
-.tox/
 .mypy_cache/
 
-# Frontend dependencies and builds
+# ── SQLite databases (contain actual case data) ────────────
+trace-backend/trace.db
+trace-backend/*.db
+trace-backend/*.db-journal
+trace-backend/*.db-shm
+trace-backend/*.db-wal
+
+# ── Node modules & build output ─────────────────────────────
 trace-frontend/node_modules/
 trace-frontend/dist/
 trace-frontend/dist-ssr/
 trace-frontend/*.local
 trace-frontend/.eslintcache
 
-# SQLite Databases & Local Storage
-trace-backend/*.db
-trace-backend/*.db-journal
-trace-backend/*.db-shm
-trace-backend/*.db-wal
-*.db
+# ── Firebase ────────────────────────────────────────────────
+.firebase/
 
-# Logs
+# ── IDE / Editor ────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ────────────────────────────────────────────────────
 *.log
 logs/
 trace-frontend/logs/
 trace-backend/logs/
-
-# Editor / IDE settings
-.vscode/
-!.vscode/extensions.json
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-# Firebase CLI cache
-.firebase/
-

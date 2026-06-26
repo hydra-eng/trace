@@ -15,6 +15,9 @@ from engines.ott_fingerprint import fingerprint_ott
 from engines.cross_case import detect_cross_case_handlers
 from engines.tower_silence import detect_tower_silence
 from engines.night_loop import detect_night_and_loop_calls
+from engines.evidence_correlation import detect_evidence_correlations
+from engines.movement_clustering import detect_movement_clusters
+from engines.cctv_pipeline import detect_cctv_correlations
 from routers.audit import log_audit
 
 router = APIRouter(tags=["analysis"])
@@ -105,6 +108,24 @@ def run_analysis(case_id: str, request: Request, db: Session = Depends(get_db)):
             counts["night_call_bursts"] += 1
         elif ev.event_type == "LOOP_CALL":
             counts["loop_calls"] += 1
+
+    # Engine 11: CDR+IPDR Temporal Evidence Correlation
+    evidence_events = detect_evidence_correlations(case_id, db)
+    for ev in evidence_events:
+        db.add(ev)
+    counts["evidence_correlations"] = len(evidence_events)
+
+    # Engine 12: Movement Pattern Clustering (DBSCAN)
+    cluster_events = detect_movement_clusters(case_id, db)
+    for ev in cluster_events:
+        db.add(ev)
+    counts["movement_clusters"] = len(cluster_events)
+
+    # Engine 13: CCTV Detection Pipeline
+    cctv_events = detect_cctv_correlations(case_id, db)
+    for ev in cctv_events:
+        db.add(ev)
+    counts["cctv_correlations"] = len(cctv_events)
 
     db.commit()
 

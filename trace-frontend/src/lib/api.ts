@@ -10,10 +10,30 @@ import {
   mockGlobalHandlers,
 } from "./mockData";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// In browser: always derive from current hostname (works for both localhost and IP access)
+// In build: VITE_API_URL can override (e.g. for production deployments)
+const API_BASE = typeof window !== "undefined"
+  ? `http://${window.location.hostname}:8000`
+  : (import.meta.env.VITE_API_URL || "http://localhost:8000");
 
-// Global mock state check
-let useMock = false;
+export { API_BASE };
+
+// Global mock state — determined once on first request
+let useMock: boolean | null = null;  // null = not yet determined
+
+// Check if backend is reachable (called once on first request)
+async function checkBackend(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/health`, { method: "GET", signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const data = await res.json();
+      return data.status === "ok";
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 // Initialize in-memory tables for mock mode mutations
 const memoryCases = [...mockCases];
@@ -115,10 +135,11 @@ function handleMockRequest<T>(path: string, options?: RequestInit): Promise<T> {
     return Promise.resolve({
       events_generated: count,
       summary: {
-        ANOMALY: evs.filter((e) => e.event_type === "ANOMALY").length,
-        CO_LOCATION: evs.filter((e) => e.event_type === "CO_LOCATION").length,
-        IMEI_SWAP: evs.filter((e) => e.event_type === "IMEI_SWAP").length,
-        COMMON_CONTACT: evs.filter((e) => e.event_type === "COMMON_CONTACT").length,
+        imei_swaps: evs.filter((e) => e.event_type === "IMEI_SWAP").length,
+        co_locations: evs.filter((e) => e.event_type === "CO_LOCATION").length,
+        common_contacts: evs.filter((e) => e.event_type === "COMMON_CONTACT").length,
+        anomalies: evs.filter((e) => e.event_type === "ANOMALY").length,
+        ott_flags: evs.filter((e) => e.event_type === "OTT_USAGE").length,
       },
     } as unknown as T);
   }
@@ -367,33 +388,73 @@ function handleMockRequest<T>(path: string, options?: RequestInit): Promise<T> {
     return Promise.resolve({ narrative } as unknown as T);
   }
 
+  // 18. GET /audit/logs
+  if (cleanPath.startsWith("/audit/logs")) {
+    const limit = parseInt(query.limit || "100", 10);
+    const actionType = query.action_type || "";
+    const now = new Date().toISOString();
+    const mockLogs = [
+      { id: "log-1", action_type: "ANALYSIS_RUN", entity_type: "Case", entity_id: memoryCases[0]?.id || "", entity_label: memoryCases[0]?.name || "Case 1", officer_ip: "192.168.1.100", officer_host: "localhost", detail: { engines_run: 5, events_generated: 17 }, timestamp: now },
+      { id: "log-2", action_type: "CASE_CREATED", entity_type: "Case", entity_id: memoryCases[0]?.id || "", entity_label: memoryCases[0]?.name || "Case 1", officer_ip: "192.168.1.100", officer_host: "localhost", detail: {}, timestamp: new Date(Date.now() - 3600000).toISOString() },
+      { id: "log-3", action_type: "CDR_UPLOADED", entity_type: "Suspect", entity_id: "", entity_label: "Kalyan Chakravarthy", officer_ip: "192.168.1.100", officer_host: "localhost", detail: { rows_inserted: 75 }, timestamp: new Date(Date.now() - 7200000).toISOString() },
+      { id: "log-4", action_type: "IPDR_UPLOADED", entity_type: "Suspect", entity_id: "", entity_label: "Kalyan Chakravarthy", officer_ip: "192.168.1.100", officer_host: "localhost", detail: { rows_inserted: 42 }, timestamp: new Date(Date.now() - 7000000).toISOString() },
+      { id: "log-5", action_type: "REPORT_GENERATED", entity_type: "Report", entity_id: "", entity_label: "Kalyan Chakravarthy", officer_ip: "192.168.1.100", officer_host: "localhost", detail: { format: "PDF", pages: 8 }, timestamp: new Date(Date.now() - 10800000).toISOString() },
+      { id: "log-6", action_type: "ANALYSIS_RUN", entity_type: "Case", entity_id: memoryCases[1]?.id || "", entity_label: memoryCases[1]?.name || "Case 2", officer_ip: "192.168.1.100", officer_host: "localhost", detail: { engines_run: 5, events_generated: 17 }, timestamp: new Date(Date.now() - 14400000).toISOString() },
+      { id: "log-7", action_type: "SUSPECT_ADDED", entity_type: "Suspect", entity_id: "", entity_label: "Ranga Reddy", officer_ip: "192.168.1.100", officer_host: "localhost", detail: {}, timestamp: new Date(Date.now() - 18000000).toISOString() },
+    ];
+    const filtered = actionType ? mockLogs.filter(l => l.action_type === actionType) : mockLogs;
+    return Promise.resolve({ total: filtered.length, offset: 0, limit, logs: filtered.slice(0, limit) } as unknown as T);
+  }
+
   return Promise.reject(new Error(`Endpoint not mock-supported: ${cleanPath}`));
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  // On first request, determine if backend is reachable
+  if (useMock === null) {
+    const reachable = await checkBackend();
+    useMock = !reachable;
+    if (useMock) {
+      console.warn("TRACE Backend not detected. Running in offline Demo Mode.");
+    } else {
+      console.log("TRACE Backend connected. Running in live mode.");
+    }
+  }
+
   if (useMock) {
     return handleMockRequest<T>(path, options);
   }
+
+  // Include JWT token if available
+  const token = localStorage.getItem("trace_token");
+  const authHeaders = token ? { "Authorization": `Bearer ${token}` } : {};
   try {
     const res = await fetch(`${API_BASE}${path}`, {
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      headers: { "Content-Type": "application/json", ...authHeaders, ...options?.headers },
       ...options,
     });
+    if (res.status === 401) {
+      // Token expired or invalid — clear and redirect to login
+      localStorage.removeItem("trace_token");
+      localStorage.removeItem("trace_logged_in");
+      window.location.reload();
+      throw new Error("Session expired. Please login again.");
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
       throw new Error(err.detail || `HTTP ${res.status}`);
     }
     return res.json();
   } catch (e: any) {
+    // Only fall back to mock on network errors (not HTTP errors)
     if (
       e.message?.includes("Failed to fetch") ||
       e.message?.includes("Load failed") ||
       e.message?.includes("NetworkError") ||
-      e.message?.includes("Failed to connect")
+      e.message?.includes("Failed to connect") ||
+      e.message?.includes("Session expired")
     ) {
-      console.warn("TRACE Backend not detected on localhost:8000. Activating offline Demo Mode.");
-      useMock = true;
-      return handleMockRequest<T>(path, options);
+      throw e; // Don't switch to mock — let the error propagate
     }
     throw e;
   }
@@ -419,20 +480,17 @@ export const api = {
       return Promise.resolve();
     }
     try {
+      const token = localStorage.getItem("trace_token");
+      const authHeaders = token ? { "Authorization": `Bearer ${token}` } : {};
       const res = await fetch(`${API_BASE}/cases/${id}`, {
         method: "DELETE",
+        headers: authHeaders,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(err.detail || `HTTP ${res.status}`);
       }
     } catch (e: any) {
-      if (e.message?.includes("Failed to fetch") || e.message?.includes("NetworkError")) {
-        useMock = true;
-        const idx = memoryCases.findIndex((x) => x.id === id);
-        if (idx !== -1) memoryCases.splice(idx, 1);
-        return Promise.resolve();
-      }
       throw e;
     }
   },
@@ -530,8 +588,12 @@ export const api = {
     form.append("cdr_file", cdrFile);
     if (ipdrFile) form.append("ipdr_file", ipdrFile);
     try {
+      const token = localStorage.getItem("trace_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/cases/${caseId}/upload`, {
         method: "POST",
+        headers,
         body: form,
       });
       if (!res.ok) {
@@ -540,10 +602,6 @@ export const api = {
       }
       return res.json() as Promise<import("./types").UploadResponse>;
     } catch (e: any) {
-      if (e.message?.includes("Failed to fetch") || e.message?.includes("NetworkError")) {
-        useMock = true;
-        return api.uploadRecords(caseId, suspectLabel, cdrFile, ipdrFile);
-      }
       throw e;
     }
   },
@@ -612,18 +670,17 @@ export const api = {
     }
 
     try {
+      const token = localStorage.getItem("trace_token");
+      const authHeaders = token ? { "Authorization": `Bearer ${token}` } : {};
       const res = await fetch(`${API_BASE}/suspects/${id}`, {
         method: "DELETE",
+        headers: authHeaders,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(err.detail || `HTTP ${res.status}`);
       }
     } catch (e: any) {
-      if (e.message?.includes("Failed to fetch") || e.message?.includes("NetworkError")) {
-        useMock = true;
-        return api.deleteSuspect(id);
-      }
       throw e;
     }
   },
@@ -744,7 +801,19 @@ export const api = {
 
   isMockMode: () => useMock,
 
-  // Templates
-  getCdrTemplateUrl: () => `${API_BASE}/templates/cdr`,
-  getIpdrTemplateUrl: () => `${API_BASE}/templates/ipdr`,
+  // Templates — generate client-side in mock mode, use API when backend available
+  getCdrTemplateUrl: () => {
+    if (useMock) {
+      const csv = "msisdn_a,msisdn_b,imei,tower_id,tower_lat,tower_lon,call_type,duration_sec,timestamp\n";
+      return URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    }
+    return `${API_BASE}/templates/cdr`;
+  },
+  getIpdrTemplateUrl: () => {
+    if (useMock) {
+      const csv = "msisdn,dest_ip,dest_port,data_volume_kb,timestamp\n";
+      return URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    }
+    return `${API_BASE}/templates/ipdr`;
+  },
 };

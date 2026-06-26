@@ -18,11 +18,17 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database import SessionLocal, engine, Base
 from models import Case, Suspect, CDRRecord, IPDRRecord, Event, PriorIncident, CCTVDetection
-from engines.imei_swap import detect_imei_swaps
+from engines.imei_swap import detect_imei_swaps, detect_multi_sim_imei
 from engines.co_location import detect_co_location
 from engines.common_contact import detect_common_contacts
 from engines.anomaly import detect_anomalies
 from engines.ott_fingerprint import fingerprint_ott
+from engines.cross_case import detect_cross_case_handlers
+from engines.tower_silence import detect_tower_silence
+from engines.night_loop import detect_night_and_loop_calls
+from engines.evidence_correlation import detect_evidence_correlations
+from engines.movement_clustering import detect_movement_clusters
+from engines.cctv_pipeline import detect_cctv_correlations
 
 DEMO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "demo-data")
 
@@ -110,18 +116,32 @@ def run_analysis_for_case(db: Session, case_id: str):
 
     event_counts = {
         "imei_swaps": 0,
+        "multi_sim_imei": 0,
         "co_locations": 0,
         "common_contacts": 0,
         "anomalies": 0,
         "ott_flags": 0,
+        "cross_case_handlers": 0,
+        "tower_silence": 0,
+        "night_call_bursts": 0,
+        "loop_calls": 0,
+        "evidence_correlations": 0,
+        "movement_clusters": 0,
+        "cctv_correlations": 0,
     }
 
-    # IMEI swaps
+    # IMEI swaps (per suspect)
     for suspect in suspects:
         events = detect_imei_swaps(suspect.id, db)
         for ev in events:
             db.add(ev)
         event_counts["imei_swaps"] += len(events)
+
+    # Multi-SIM / Burner phone (case-wide)
+    multi_sim_events = detect_multi_sim_imei(case_id, db)
+    for ev in multi_sim_events:
+        db.add(ev)
+    event_counts["multi_sim_imei"] = len(multi_sim_events)
 
     # Co-location
     co_events = detect_co_location(case_id, db)
@@ -147,6 +167,45 @@ def run_analysis_for_case(db: Session, case_id: str):
         for ev in ott_events:
             db.add(ev)
         event_counts["ott_flags"] += len(ott_events)
+
+    # Cross-case handler matcher
+    xcase_events = detect_cross_case_handlers(case_id, db)
+    for ev in xcase_events:
+        db.add(ev)
+    event_counts["cross_case_handlers"] = len(xcase_events)
+
+    # Tower silence / last-seen
+    silence_events = detect_tower_silence(case_id, db)
+    for ev in silence_events:
+        db.add(ev)
+    event_counts["tower_silence"] = len(silence_events)
+
+    # Night-call burst + loop calls
+    night_loop_events = detect_night_and_loop_calls(case_id, db)
+    for ev in night_loop_events:
+        db.add(ev)
+        if ev.event_type == "NIGHT_CALL_BURST":
+            event_counts["night_call_bursts"] += 1
+        elif ev.event_type == "LOOP_CALL":
+            event_counts["loop_calls"] += 1
+
+    # Evidence correlation
+    evidence_events = detect_evidence_correlations(case_id, db)
+    for ev in evidence_events:
+        db.add(ev)
+    event_counts["evidence_correlations"] = len(evidence_events)
+
+    # Movement clustering
+    cluster_events = detect_movement_clusters(case_id, db)
+    for ev in cluster_events:
+        db.add(ev)
+    event_counts["movement_clusters"] = len(cluster_events)
+
+    # CCTV detection pipeline
+    cctv_events = detect_cctv_correlations(case_id, db)
+    for ev in cctv_events:
+        db.add(ev)
+    event_counts["cctv_correlations"] = len(cctv_events)
 
     db.commit()
     total = sum(event_counts.values())
