@@ -1,16 +1,18 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import type { MovementPoint, EventOut } from "../lib/types";
-import { X, Maximize2, Minimize2 } from "lucide-react";
+import { X, Maximize2, Minimize2, Loader2 } from "lucide-react";
 import {
   Map,
   MapControls,
   MapMarker,
+  MarkerContent,
   MapRoute,
   MapArc,
   MarkerTooltip,
   type MapArcDatum,
 } from "@/components/ui/map";
 import { cn } from "@/lib/utils";
+import { MOCK_ROUTES, decodePolyline } from "../lib/mockRoutes";
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const INITIAL_CENTER: [number, number] = [79.7400, 15.9000];
@@ -51,33 +53,153 @@ const ALL_TOWERS = [
   { id: "TWR-HYD-002", name: "LB Nagar",               lat: 17.3453, lon: 78.5479, district: "Hyderabad" },
 ];
 
+// Helper to fuzzy-match coordinates in cache if no exact match is found
+function findClosestCachedRoute(
+  start: [number, number],
+  end: [number, number]
+): [number, number][] | null {
+  let closestPoly: string | null = null;
+  let minDistance = Infinity;
+  let shouldReverse = false;
+
+  const distSq = (p1: [number, number], p2: [number, number]) => {
+    return Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2);
+  };
+
+  for (const key of Object.keys(MOCK_ROUTES)) {
+    const parts = key.split("_");
+    const c1 = parts[0].split(",").map(Number) as [number, number];
+    const c2 = parts[1].split(",").map(Number) as [number, number];
+
+    // Check forward match: start near c1, end near c2
+    const dForward = distSq(start, c1) + distSq(end, c2);
+    if (dForward < minDistance) {
+      minDistance = dForward;
+      closestPoly = MOCK_ROUTES[key];
+      shouldReverse = false;
+    }
+
+    // Check backward match: start near c2, end near c1
+    const dBackward = distSq(start, c2) + distSq(end, c1);
+    if (dBackward < minDistance) {
+      minDistance = dBackward;
+      closestPoly = MOCK_ROUTES[key];
+      shouldReverse = true;
+    }
+  }
+
+  // Snapped to coordinates within a reasonable threshold (approx 15km)
+  if (closestPoly && minDistance < 0.02) {
+    const decoded = decodePolyline(closestPoly);
+    return shouldReverse ? [...decoded].reverse() : decoded;
+  }
+
+  return null;
+}
+
 // ── OSRM Road Routing ──────────────────────────────────────────────────────────
 async function fetchOsrmRoute(
   points: [number, number][]
 ): Promise<[number, number][]> {
   if (points.length < 2) return points;
-  
-  // Abort controller for a low 800ms timeout to keep map load fast
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 800);
+
+  const promises = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const start = points[i];
+    const end = points[i + 1];
+
+    if (start[0] === end[0] && start[1] === end[1]) {
+      promises.push(Promise.resolve([start]));
+      continue;
+    }
+
+    const fetchSegment = async (): Promise<[number, number][]> => {
+      // 1. Exact & reverse cache lookup
+      const startLon = start[0].toFixed(4);
+      const startLat = start[1].toFixed(4);
+      const endLon = end[0].toFixed(4);
+      const endLat = end[1].toFixed(4);
+
+      const key1 = `${startLon},${startLat}_${endLon},${endLat}`;
+      const key2 = `${endLon},${endLat}_${startLon},${startLat}`;
+
+      const poly = MOCK_ROUTES[key1] || MOCK_ROUTES[key2];
+      if (poly) {
+        const decoded = decodePolyline(poly);
+        if (!MOCK_ROUTES[key1] && MOCK_ROUTES[key2]) {
+          return [...decoded].reverse();
+        }
+        return decoded;
+      }
+
+      // 2. Fuzzy cache lookup
+      const fuzzy = findClosestCachedRoute(start, end);
+      if (fuzzy) {
+        return fuzzy;
+      }
+
+      // 3. Online fallback (if user's environment has access)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const url = `https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?overview=simplified&geometries=polyline`;
+
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.routes && data.routes[0]) {
+            return decodePolyline(data.routes[0].geometry);
+          }
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+      }
+
+      // 4. Ultimate fallback to prevent straight lines: find the closest cached route regardless of threshold
+      let closestPoly: string | null = null;
+      let minDistance = Infinity;
+      let shouldReverse = false;
+      const distSq = (p1: [number, number], p2: [number, number]) => Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2);
+      for (const key of Object.keys(MOCK_ROUTES)) {
+        const parts = key.split("_");
+        const c1 = parts[0].split(",").map(Number) as [number, number];
+        const c2 = parts[1].split(",").map(Number) as [number, number];
+        const dF = distSq(start, c1) + distSq(end, c2);
+        if (dF < minDistance) { minDistance = dF; closestPoly = MOCK_ROUTES[key]; shouldReverse = false; }
+        const dB = distSq(start, c2) + distSq(end, c1);
+        if (dB < minDistance) { minDistance = dB; closestPoly = MOCK_ROUTES[key]; shouldReverse = true; }
+      }
+      if (closestPoly) {
+        const decoded = decodePolyline(closestPoly);
+        return shouldReverse ? [...decoded].reverse() : decoded;
+      }
+
+      return [start, end];
+    };
+    promises.push(fetchSegment());
+  }
+
 
   try {
-    const coordStr = points.map(([lon, lat]) => `${lon},${lat}`).join(";");
-    const res = await fetch(
-      `https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timeoutId);
-    if (!res.ok) throw new Error("OSRM error");
-    const data = await res.json();
-    if (data.routes && data.routes[0]) {
-      return data.routes[0].geometry.coordinates as [number, number][];
-    }
+    const segments = await Promise.all(promises);
+    const route: [number, number][] = [];
+    segments.forEach((seg) => {
+      seg.forEach((coord) => {
+        if (
+          route.length === 0 ||
+          route[route.length - 1][0] !== coord[0] ||
+          route[route.length - 1][1] !== coord[1]
+        ) {
+          route.push(coord);
+        }
+      });
+    });
+    return route;
   } catch (err) {
-    clearTimeout(timeoutId);
-    // fallback to straight lines
+    // global fallback to straight lines
+    return points;
   }
-  return points;
 }
 
 // ── PROPS ─────────────────────────────────────────────────────────────────────
@@ -86,6 +208,7 @@ interface Props {
   events?: EventOut[];
   suspectLabel?: string;
   cctvDetections?: any[];
+  onMapLoaded?: () => void;
 }
 
 // ── COMPONENT ──────────────────────────────────────────────────────────────────
@@ -94,6 +217,7 @@ export default function MovementMap({
   events = [],
   suspectLabel,
   cctvDetections = [],
+  onMapLoaded,
 }: Props) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapStyleMode, setMapStyleMode] = useState<"vector" | "satellite">("vector");
@@ -106,10 +230,79 @@ export default function MovementMap({
   >({});
 
   const [mapInstance, setMapInstance] = useState<any>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
-  // ── Fit Map Bounds to show the total path on the screen ────────────────────
+  // ── Group movements by suspect ────────────────────────────────────────────
+  const getDayNumber = useCallback((tsStr: string) => {
+    const ts = new Date(tsStr);
+    const start = new Date("2024-01-01T00:00:00");
+    const diffDays = Math.floor((ts.getTime() - start.getTime()) / 86400000) + 1;
+    return Math.min(30, Math.max(1, diffDays));
+  }, []);
+
+  const suspectGroups = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    movements.forEach((m) => {
+      const label = (m as any).suspect_label || suspectLabel || "Active Suspect";
+      if (!groups[label]) groups[label] = [];
+      groups[label].push({
+        lat: m.lat,
+        lon: m.lon,
+        timestamp: new Date(m.timestamp).getTime(),
+        day: getDayNumber(m.timestamp),
+        co_location: m.co_location,
+        co_location_with: m.co_location_with,
+        tower_id: m.tower_id,
+      });
+    });
+    return groups;
+  }, [movements, suspectLabel, getDayNumber]);
+
+  const suspectsList = Object.keys(suspectGroups);
+  const routesReady = suspectsList.length === 0 || suspectsList.every((label) => suspectRoutes[label] !== undefined);
+  const isFullyLoaded = mapLoaded && routesReady;
+
+  // ── Track Map Load and Style Load Status ───────────────────────────────────
   useEffect(() => {
-    if (!mapInstance) return;
+    if (!mapInstance) {
+      setMapLoaded(false);
+      return;
+    }
+
+    const handleReady = () => {
+      setMapLoaded(true);
+    };
+
+    if (mapInstance.loaded() && mapInstance.isStyleLoaded()) {
+      setMapLoaded(true);
+    } else {
+      mapInstance.on("load", handleReady);
+      mapInstance.on("idle", handleReady);
+    }
+
+    return () => {
+      mapInstance.off("load", handleReady);
+      mapInstance.off("idle", handleReady);
+    };
+  }, [mapInstance]);
+
+  // ── Notify Parent when both Map and Suspect Routes are Fully Loaded ───────
+  useEffect(() => {
+    if (isFullyLoaded) {
+      onMapLoaded?.();
+    }
+  }, [isFullyLoaded, onMapLoaded]);
+
+  // ── Fit Map Bounds (Exactly once per dataset to allow free roaming) ────────
+  const lastFittedKeyRef = useRef<string>("");
+  useEffect(() => {
+    if (!mapInstance || !isFullyLoaded) return;
+
+    const dataKey = `${movements.map((m) => `${m.lon},${m.lat}`).join(";")}|${cctvDetections.map((d) => d.camera_id).join(";")}`;
+    if (lastFittedKeyRef.current === dataKey) return;
+
+    // Call resize to ensure container box is calculated properly
+    mapInstance.resize();
 
     const coords: [number, number][] = [];
 
@@ -163,10 +356,11 @@ export default function MovementMap({
         maxZoom: 13,
         duration: 1500,
       });
+      lastFittedKeyRef.current = dataKey;
     } catch (err) {
       console.error("Error fitting bounds:", err);
     }
-  }, [mapInstance, movements, suspectRoutes, cctvDetections]);
+  }, [mapInstance, isFullyLoaded, movements, suspectRoutes, cctvDetections]);
 
   // ── Esc key to exit fullscreen ────────────────────────────────────────────
   useEffect(() => {
@@ -177,72 +371,75 @@ export default function MovementMap({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isFullscreen]);
 
-  // ── Group movements by suspect ────────────────────────────────────────────
-  const getDayNumber = (tsStr: string) => {
-    const ts = new Date(tsStr);
-    const start = new Date("2024-01-01T00:00:00");
-    const diffDays = Math.floor((ts.getTime() - start.getTime()) / 86400000) + 1;
-    return Math.min(30, Math.max(1, diffDays));
-  };
+  // Resize map when fullscreen mode changes
+  useEffect(() => {
+    if (mapInstance) {
+      const timer = setTimeout(() => {
+        mapInstance.resize();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [mapInstance, isFullscreen]);
 
-  const suspectGroups: Record<string, any[]> = {};
+  // (definitions moved to top of component)
+
+  // ── Build tower visit data dynamically from movements ──────────────────────
+  const dynamicTowersMap: Record<string, any> = {};
   movements.forEach((m) => {
-    const label = (m as any).suspect_label || suspectLabel || "Active Suspect";
-    if (!suspectGroups[label]) suspectGroups[label] = [];
-    suspectGroups[label].push({
-      lat: m.lat,
-      lon: m.lon,
-      timestamp: new Date(m.timestamp).getTime(),
-      day: getDayNumber(m.timestamp),
-      co_location: m.co_location,
-      co_location_with: m.co_location_with,
-      tower_id: m.tower_id,
+    if (!dynamicTowersMap[m.tower_id]) {
+      const refTower = ALL_TOWERS.find((t) => t.id === m.tower_id);
+      dynamicTowersMap[m.tower_id] = {
+        id: m.tower_id,
+        name: refTower?.name || `Cell Tower (${m.tower_id})`,
+        lat: m.lat,
+        lon: m.lon,
+        district: refTower?.district || "Andhra Pradesh",
+        hasColocation: false,
+        visits: [],
+      };
+    }
+    
+    const tObj = dynamicTowersMap[m.tower_id];
+    if (m.co_location) {
+      tObj.hasColocation = true;
+    }
+
+    const day = getDayNumber(m.timestamp);
+    const time = new Date(m.timestamp).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
     });
-  });
-
-  const suspectsList = Object.keys(suspectGroups);
-
-  // ── Build tower visit data ────────────────────────────────────────────────
-  const towers = ALL_TOWERS.map((t) => {
-    const towerMovements = movements.filter((m) => m.tower_id === t.id);
-    const hasColocation = towerMovements.some((m) => m.co_location);
-
-    const visits: any[] = [];
-    towerMovements.forEach((m) => {
-      const day = getDayNumber(m.timestamp);
-      const time = new Date(m.timestamp).toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
+    const suspLabel = (m as any).suspect_label || suspectLabel || "Active Suspect";
+    
+    // Add visits
+    const exists = tObj.visits.some(
+      (v: any) => v.suspect === suspLabel && v.day === day && v.time === time
+    );
+    if (!exists) {
+      tObj.visits.push({
+        suspect: suspLabel,
+        day,
+        time,
+        coLocationWith: m.co_location_with || [],
       });
-      const suspLabel = (m as any).suspect_label || suspectLabel || "Active Suspect";
-      const exists = visits.some(
-        (v) => v.suspect === suspLabel && v.day === day && v.time === time
-      );
-      if (!exists) {
-        visits.push({
-          suspect: suspLabel,
-          day,
-          time,
-          coLocationWith: m.co_location_with || [],
-        });
-      }
-      if (m.co_location_with) {
-        m.co_location_with.forEach((other) => {
-          const otherExists = visits.some(
-            (v) => v.suspect === other && v.day === day && v.time === time
-          );
-          if (!otherExists)
-            visits.push({ suspect: other, day, time, coLocationWith: [] });
-        });
-      }
-    });
-
-    return {
-      ...t,
-      hasColocation,
-      visits: visits.sort((a, b) => a.day - b.day || a.time.localeCompare(b.time)),
-    };
+    }
+    
+    if (m.co_location_with) {
+      m.co_location_with.forEach((other) => {
+        const otherExists = tObj.visits.some(
+          (v: any) => v.suspect === other && v.day === day && v.time === time
+        );
+        if (!otherExists) {
+          tObj.visits.push({ suspect: other, day, time, coLocationWith: [] });
+        }
+      });
+    }
   });
+
+  const towers = Object.values(dynamicTowersMap).map((t: any) => ({
+    ...t,
+    visits: t.visits.sort((a: any, b: any) => a.day - b.day || a.time.localeCompare(b.time)),
+  }));
 
   // ── IMEI swap events ──────────────────────────────────────────────────────
   const imeiSwaps = events
@@ -255,7 +452,13 @@ export default function MovementMap({
         const diff = Math.abs(new Date(m.timestamp).getTime() - ts);
         if (diff < minDiff) { minDiff = diff; closestPt = m; }
       });
-      const tower = closestPt ? ALL_TOWERS.find((t) => t.id === closestPt.tower_id) : null;
+      const tower = closestPt ? {
+        id: closestPt.tower_id,
+        name: ALL_TOWERS.find((t) => t.id === closestPt.tower_id)?.name || `Cell Tower (${closestPt.tower_id})`,
+        lat: closestPt.lat,
+        lon: closestPt.lon,
+        district: ALL_TOWERS.find((t) => t.id === closestPt.tower_id)?.district || "Andhra Pradesh"
+      } : null;
       return { ...ev, tower };
     })
     .filter((s): s is typeof s & { tower: any } => s.tower !== null);
@@ -289,15 +492,7 @@ export default function MovementMap({
 
   // ── Fetch OSRM road routes ────────────────────────────────────────────────
   const fetchRoutes = useCallback(async () => {
-    // 1. Instantly populate with straight line paths for speed
-    const initialRoutes: Record<string, [number, number][]> = {};
-    Object.entries(suspectGroups).forEach(([label, pts]) => {
-      const sorted = [...pts].sort((a, b) => a.timestamp - b.timestamp);
-      initialRoutes[label] = sorted.map((p) => [p.lon, p.lat]);
-    });
-    setSuspectRoutes(initialRoutes);
-
-    // 2. Fetch OSRM routes progressively in the background
+    // Fetch OSRM routes progressively in the background for each suspect
     Object.entries(suspectGroups).forEach(async ([label, pts]) => {
       const sorted = [...pts].sort((a, b) => a.timestamp - b.timestamp);
       if (sorted.length < 2) return;
@@ -315,19 +510,20 @@ export default function MovementMap({
         }
       });
 
-      // OSRM max 100 waypoints — sample if needed
-      const sampled =
-        unique.length > 25
-          ? unique.filter((_, i) => i % Math.ceil(unique.length / 25) === 0)
-          : unique;
-
-      const osrmRoute = await fetchOsrmRoute(sampled);
-      setSuspectRoutes((prev) => ({
-        ...prev,
-        [label]: osrmRoute,
-      }));
+      const osrmRoute = await fetchOsrmRoute(unique);
+      setSuspectRoutes((prev) => {
+        const prevRoute = prev[label];
+        if (prevRoute && prevRoute.length === osrmRoute.length) {
+          const isSame = prevRoute.every((coord, idx) => coord[0] === osrmRoute[idx][0] && coord[1] === osrmRoute[idx][1]);
+          if (isSame) return prev;
+        }
+        return {
+          ...prev,
+          [label]: osrmRoute,
+        };
+      });
     });
-  }, [movements]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [suspectGroups]);
 
   useEffect(() => {
     if (movements.length > 0) fetchRoutes();
@@ -421,6 +617,22 @@ export default function MovementMap({
         .glow-amber { animation: glow-pulse-amber 1.8s infinite; }
         .glow-red { animation: glow-pulse-red 1.8s infinite; }
       `}</style>
+
+      {/* ── Premium Loading Overlay ── */}
+      {!isFullyLoaded && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/90 backdrop-blur-xs font-sans">
+          <div className="flex flex-col items-center gap-3 p-6 bg-white border border-slate-100 rounded-xl shadow-lg max-w-sm text-center animate-in fade-in zoom-in-95 duration-200">
+            <Loader2 className="size-8 animate-spin text-indigo-600" />
+            <div>
+              <h3 className="text-xs font-bold text-slate-800">Loading Geospatial Analysis...</h3>
+              <p className="text-[10px] text-slate-500 mt-1 leading-normal">
+                Initializing digital map layers and plotting suspect movement timelines
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ flex: 1, position: "relative" }}>
         <Map
           ref={setMapInstance}
@@ -482,14 +694,16 @@ export default function MovementMap({
                 longitude={m.lon}
                 latitude={m.lat}
               >
-                <div
-                  className="rounded-full border border-white cursor-pointer shadow-xs transition-transform duration-100 hover:scale-150"
-                  style={{
-                    width: 7,
-                    height: 7,
-                    backgroundColor: hex,
-                  }}
-                />
+                <MarkerContent>
+                  <div
+                    className="rounded-full border border-white cursor-pointer shadow-xs transition-transform duration-100 hover:scale-150"
+                    style={{
+                      width: 7,
+                      height: 7,
+                      backgroundColor: hex,
+                    }}
+                  />
+                </MarkerContent>
                 <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2 text-[10px] shadow-lg font-sans min-w-[150px] z-50">
                   <div className="font-bold" style={{ color: hex }}>{label}</div>
                   <div className="text-[9px] text-slate-300 mt-0.5">📍 CDR Registration</div>
@@ -512,21 +726,23 @@ export default function MovementMap({
               latitude={tower.lat}
               onClick={() => { setSelectedTower(tower); setSelectedCctv(null); }}
             >
-              <div
-                className={cn(
-                  "rounded-full cursor-pointer transition-all duration-150",
-                  tower.hasColocation ? "glow-red" : ""
-                )}
-                style={{
-                  width: tower.hasColocation ? 20 : 14,
-                  height: tower.hasColocation ? 20 : 14,
-                  backgroundColor: tower.hasColocation ? "#ef4444" : "#ffffff",
-                  border: tower.hasColocation ? "2.5px solid #b91c1c" : "2px solid #475569",
-                  boxShadow: tower.hasColocation ? undefined : "0 1px 4px rgba(0,0,0,0.18)",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.25)")}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-              />
+              <MarkerContent>
+                <div
+                  className={cn(
+                    "rounded-full cursor-pointer transition-all duration-150",
+                    tower.hasColocation ? "glow-red" : ""
+                  )}
+                  style={{
+                    width: tower.hasColocation ? 20 : 14,
+                    height: tower.hasColocation ? 20 : 14,
+                    backgroundColor: tower.hasColocation ? "#ef4444" : "#ffffff",
+                    border: tower.hasColocation ? "2.5px solid #b91c1c" : "2px solid #475569",
+                    boxShadow: tower.hasColocation ? undefined : "0 1px 4px rgba(0,0,0,0.18)",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.25)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                />
+              </MarkerContent>
               <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2.5 text-xs shadow-lg font-sans min-w-[200px] z-50">
                 <div className="font-bold flex items-center justify-between gap-2">
                   <span>{tower.name}</span>
@@ -567,18 +783,20 @@ export default function MovementMap({
               longitude={swap.tower.lon}
               latitude={swap.tower.lat}
             >
-              <div
-                className="glow-amber rounded-full flex items-center justify-center text-white font-bold cursor-default shadow-md"
-                style={{
-                  background: "#f59e0b",
-                  border: "2px solid #fff",
-                  width: 18,
-                  height: 18,
-                  fontSize: 9,
-                }}
-              >
-                ⚠
-              </div>
+              <MarkerContent>
+                <div
+                  className="glow-amber rounded-full flex items-center justify-center text-white font-bold cursor-default shadow-md"
+                  style={{
+                    background: "#f59e0b",
+                    border: "2px solid #fff",
+                    width: 18,
+                    height: 18,
+                    fontSize: 9,
+                  }}
+                >
+                  ⚠
+                </div>
+              </MarkerContent>
               <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2.5 text-xs shadow-lg font-sans min-w-[220px] z-50">
                 <div className="font-bold text-amber-400 flex items-center gap-1.5">
                   <span>⚠ IMEI Swap Detected</span>
@@ -601,14 +819,16 @@ export default function MovementMap({
             const glowClass = getGlowClass(label);
             return (
               <MapMarker key={`susp-${label}`} longitude={pos.lon} latitude={pos.lat}>
-                <div
-                  className={cn("rounded-full border-2 border-white cursor-pointer shadow-md", glowClass)}
-                  style={{
-                    width: 16,
-                    height: 16,
-                    backgroundColor: hex,
-                  }}
-                />
+                <MarkerContent>
+                  <div
+                    className={cn("rounded-full border-2 border-white cursor-pointer shadow-md", glowClass)}
+                    style={{
+                      width: 16,
+                      height: 16,
+                      backgroundColor: hex,
+                    }}
+                  />
+                </MarkerContent>
                 <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2 text-xs shadow-lg font-sans z-50">
                   <div className="font-bold">{label}</div>
                   <div className="text-[10px] text-slate-400 font-mono mt-0.5">Current Position</div>
@@ -628,20 +848,22 @@ export default function MovementMap({
                 latitude={det.camera_lat}
                 onClick={() => { setSelectedCctv(det); setSelectedTower(null); }}
               >
-                <div
-                  className={cn(
-                    "rounded flex items-center justify-center cursor-pointer shadow-md text-[10px] transition-transform",
-                    isConfirmed ? "glow-emerald" : "glow-amber"
-                  )}
-                  style={{
-                    width: 20,
-                    height: 20,
-                    backgroundColor: isConfirmed ? "#16a34a" : "#f59e0b",
-                    border: "2px solid #fff",
-                  }}
-                >
-                  📷
-                </div>
+                <MarkerContent>
+                  <div
+                    className={cn(
+                      "rounded flex items-center justify-center cursor-pointer shadow-md text-[10px] transition-transform",
+                      isConfirmed ? "glow-emerald" : "glow-amber"
+                    )}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      backgroundColor: isConfirmed ? "#16a34a" : "#f59e0b",
+                      border: "2px solid #fff",
+                    }}
+                  >
+                    📷
+                  </div>
+                </MarkerContent>
                 <MarkerTooltip className="bg-slate-900 border border-slate-700 text-white rounded p-2.5 text-xs shadow-lg font-sans min-w-[220px] z-50">
                   <div className="font-bold flex items-center justify-between gap-2">
                     <span>📷 {det.camera_name}</span>

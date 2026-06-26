@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import type { SuspectProfileOut } from "../lib/types";
 import CallCalendar from "../components/CallCalendar";
 import MovementMap from "../components/MovementMap";
-import { Download, AlertTriangle, CheckCircle, Eye, X } from "lucide-react";
+import { Download, AlertTriangle, CheckCircle, Eye, X, Loader2 } from "lucide-react";
 import { generatePdfReport } from "../lib/generatePdfReport";
 
 const videoMapping: Record<string, string> = {
@@ -58,13 +58,15 @@ export default function SuspectProfilePage() {
   const { suspectId } = useParams<{ suspectId: string }>();
   const [profile, setProfile] = useState<SuspectProfileOut | null>(null);
   const [cctvDetections, setCctvDetections] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [apiLoading, setApiLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
   const [error, setError] = useState("");
   const [selectedCctv, setSelectedCctv] = useState<any | null>(null);
 
   useEffect(() => {
     if (!suspectId) return;
-    setLoading(true);
+    setApiLoading(true);
+    setMapReady(false);
     Promise.all([
       api.getSuspectProfile(suspectId),
       api.getSuspectCctv(suspectId).catch(() => [])
@@ -74,10 +76,10 @@ export default function SuspectProfilePage() {
         setCctvDetections(cctv);
       })
       .catch(() => setError("Failed to load suspect profile."))
-      .finally(() => setLoading(false));
+      .finally(() => setApiLoading(false));
   }, [suspectId]);
 
-  if (loading) {
+  if (apiLoading) {
     return (
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
         <div className="text-xs text-zinc-400">← Back to Case</div>
@@ -418,7 +420,12 @@ export default function SuspectProfilePage() {
         {movement_data.length > 0 ? (
           <>
             <div style={{ height: "380px" }} className="mb-4 rounded-lg overflow-hidden border border-zinc-100">
-              <MovementMap movements={movement_data} events={events} suspectLabel={suspect.label} />
+              <MovementMap 
+                movements={movement_data} 
+                events={events} 
+                suspectLabel={suspect.label} 
+                onMapLoaded={() => setMapReady(true)} 
+              />
             </div>
             <table className="w-full text-xs">
               <thead>
@@ -685,6 +692,20 @@ export default function SuspectProfilePage() {
               >
                 Close Viewer
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {profile && profile.movement_data.length > 0 && !mapReady && (
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50/90 backdrop-blur-md font-sans">
+          <div className="flex flex-col items-center gap-3 p-6 bg-white border border-slate-100 rounded-xl shadow-lg max-w-sm text-center animate-in fade-in zoom-in-95 duration-200">
+            <Loader2 className="size-8 animate-spin text-indigo-600" />
+            <div>
+              <h3 className="text-xs font-bold text-slate-800">Loading Geospatial Analysis...</h3>
+              <p className="text-[10px] text-slate-500 mt-1 leading-normal">
+                Initializing digital map layers and plotting suspect movement timelines
+              </p>
             </div>
           </div>
         </div>
