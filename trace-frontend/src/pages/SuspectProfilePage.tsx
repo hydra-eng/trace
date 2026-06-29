@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
 import type { SuspectProfileOut } from "../lib/types";
 import CallCalendar from "../components/CallCalendar";
 import MovementMap from "../components/MovementMap";
@@ -48,38 +49,56 @@ function eventSummary(ev: { event_type: string; detail: Record<string, unknown> 
   if (ev.event_type === "OTT_USAGE") return `${d.app}`;
   if (ev.event_type === "MULTI_SIM_IMEI") return `Burner Handset (IMEI: ${d.imei}) used with ${d.sim_count} SIMs`;
   if (ev.event_type === "CROSS_CASE_HANDLER") return `Global linkage: contact ${d.handler_number} appears in ${d.case_count} cases`;
-  if (ev.event_type === "TOWER_SILENCE") return `Radio-silent for ${d.gap_hours} hrs. Last seen tower: ${d.last_seen_tower}`;
-  if (ev.event_type === "NIGHT_CALL_BURST") return `Nocturnal burst: ${d.call_count} calls on ${d.night_date}`;
-  if (ev.event_type === "LOOP_CALL") return `Urgent loop coordination: ${d.call_count_in_window} calls in ${d.window_minutes} mins`;
-  return "—";
+  if (ev.event_type === "TOWER_SILENCE") return `Silence detected for ${d.silence_hours} hours around ${d.tower_id}`;
+  if (ev.event_type === "LOOP_CALL") return `Loop: A → B → C → A Calls`;
+  if (ev.event_type === "NIGHT_CALL_BURST") return `Night burst: ${d.call_count} calls after midnight`;
+  return JSON.stringify(d).slice(0, 80);
 }
 
 export default function SuspectProfilePage() {
   const { suspectId } = useParams<{ suspectId: string }>();
+  const role = useRole();
   const [profile, setProfile] = useState<SuspectProfileOut | null>(null);
-  const [cctvDetections, setCctvDetections] = useState<any[]>([]);
-  const [apiLoading, setApiLoading] = useState(true);
-  const [mapReady, setMapReady] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [cctvDetections, setCctvDetections] = useState<any[]>([]);
   const [selectedCctv, setSelectedCctv] = useState<any | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
-  useEffect(() => {
+  const load = async () => {
     if (!suspectId) return;
-    setApiLoading(true);
-    setMapReady(false);
-    Promise.all([
-      api.getSuspectProfile(suspectId),
-      api.getSuspectCctv(suspectId).catch(() => [])
-    ])
-      .then(([prof, cctv]) => {
-        setProfile(prof);
-        setCctvDetections(cctv);
-      })
-      .catch(() => setError("Failed to load suspect profile."))
-      .finally(() => setApiLoading(false));
-  }, [suspectId]);
+    setLoading(true);
+    try {
+      const data = await api.getSuspectProfile(suspectId);
+      setProfile(data);
+      const cctv = await api.getSuspectCctv(suspectId).catch(() => []);
+      setCctvDetections(cctv);
+    } catch (err: unknown) {
+      setError("Failed to load suspect profile details.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (apiLoading) {
+  useEffect(() => { load(); }, [suspectId]);
+
+  const handleDownloadReport = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!suspectId || !profile) return;
+    const url = api.getReportUrl(suspectId);
+    if (url.startsWith("data:")) {
+      try {
+        const caseName = profile.suspect.case_id ?? "Unknown Case";
+        generatePdfReport(profile, caseName, cctvDetections);
+      } catch (err) {
+        console.error("Failed to generate PDF report:", err);
+      }
+    } else {
+      window.location.href = url;
+    }
+  };
+
+  if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
         <div className="text-xs text-zinc-400">← Back to Case</div>
@@ -133,27 +152,6 @@ export default function SuspectProfilePage() {
 
   const hasAnyRisk = hasAnomaly || hasImeiSwap || hasMultiSimImei || hasCrossCaseHandler || hasTowerSilence || hasLoopCall || hasNightCallBurst;
 
-  const handleDownloadReport = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!suspectId) return;
-    // In demo/mock mode (no backend), generate the full court-grade PDF client-side.
-    // When a live backend is available, fall through to the server-generated PDF.
-    const url = api.getReportUrl(suspectId);
-    if (url.startsWith("data:")) {
-      // Demo mode — generate real PDF using jsPDF
-      try {
-        // Derive case name from the case_id in the suspect object if possible
-        const caseName = suspect.case_id ?? "Unknown Case";
-        generatePdfReport(profile, caseName, cctvDetections);
-      } catch (err) {
-        console.error("Failed to generate PDF report:", err);
-      }
-    } else {
-      // Live backend — stream the server-generated PDF
-      window.location.href = url;
-    }
-  };
-
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
       {/* Back link */}
@@ -183,14 +181,16 @@ export default function SuspectProfilePage() {
               Anomaly {anomalyScore.toFixed(3)}
             </span>
           )}
-          <button
-            id="btn-download-report"
-            onClick={handleDownloadReport}
-            className="flex items-center gap-2 px-4 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-700 hover:bg-zinc-50 transition-colors cursor-pointer"
-          >
-            <Download size={14} />
-            Download Report
-          </button>
+          {role !== "viewer" && (
+            <button
+              id="btn-download-report"
+              onClick={handleDownloadReport}
+              className="flex items-center gap-2 px-4 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-700 hover:bg-zinc-50 transition-colors cursor-pointer"
+            >
+              <Download size={14} />
+              Download Report
+            </button>
+          )}
         </div>
       </div>
 
@@ -587,11 +587,23 @@ export default function SuspectProfilePage() {
                     </div>
                   </div>
 
-                  <div className="mt-2 pt-2 border-t border-zinc-100">
-                    <span className="text-[10px] uppercase text-zinc-400 font-semibold block">CDR Correlation</span>
-                    <p className="text-zinc-700 mt-0.5 leading-tight font-medium">
-                      Tower <span className="font-mono">{d.matched_tower_id}</span> hit {d.notes}
-                    </p>
+                  <div className="mt-2 pt-2 border-t border-zinc-150 space-y-1 bg-zinc-50/50 p-2 rounded">
+                    <span className="text-[9px] uppercase text-zinc-400 font-bold tracking-wider block">CDR Correlation</span>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-zinc-650 font-mono">
+                      <div>Tower ID:</div>
+                      <div className="font-semibold text-zinc-950 truncate">{d.matched_tower_id || "—"}</div>
+                      <div>Registration:</div>
+                      <div className="font-semibold text-zinc-950 truncate">{d.cdr_tower_timestamp ? formatDate(d.cdr_tower_timestamp) : "—"}</div>
+                      <div>Time Delta:</div>
+                      <div className="font-semibold text-zinc-950">
+                        {d.correlation_status === "UNMATCHED" || d.time_delta_minutes === undefined || d.time_delta_minutes === null ? "—" : `${d.time_delta_minutes > 0 ? `+${d.time_delta_minutes}` : d.time_delta_minutes} min`}
+                      </div>
+                    </div>
+                    {d.notes && (
+                      <p className="text-[10px] text-zinc-500 italic mt-1.5 leading-tight pt-1.5 border-t border-zinc-200/50">
+                        {d.notes}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

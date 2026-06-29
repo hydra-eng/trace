@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
 import type { CaseOut, EventOut, SuspectOut } from "../lib/types";
 import SuspectCard from "../components/SuspectCard";
 import NetworkGraph from "../components/NetworkGraph";
-import { Upload, Play, Loader2, AlertTriangle, Users, Activity, Phone, Camera, Eye, X } from "lucide-react";
+import DocumentStatusBadge from "../components/DocumentStatusBadge";
+import CertWorksheetModal from "../components/CertWorksheetModal";
+import { Upload, Play, Loader2, AlertTriangle, Users, Activity, Phone, Camera, Eye, X, FileText } from "lucide-react";
 
 type TabType = "network" | "events" | "suspects";
 
@@ -38,6 +41,7 @@ function eventSummary(ev: EventOut): string {
 export default function CaseDetailPage() {
   const { caseId } = useParams<{ caseId: string }>();
   const navigate = useNavigate();
+  const role = useRole();
 
   const [caseData, setCaseData] = useState<CaseOut | null>(null);
   const [suspects, setSuspects] = useState<SuspectOut[]>([]);
@@ -54,6 +58,12 @@ export default function CaseDetailPage() {
   const [cctvDetections, setCctvDetections] = useState<any[]>([]);
   const [summaryData, setSummaryData] = useState<{ narrative: string } | null>(null);
   const [selectedCctv, setSelectedCctv] = useState<any | null>(null);
+
+  // Section 65B document state
+  const [docStatus, setDocStatus] = useState<string>("DRAFT");
+  const [reviewedBy, setReviewedBy] = useState<string | null>(null);
+  const [reviewedAt, setReviewedAt] = useState<string | null>(null);
+  const [showWorksheetModal, setShowWorksheetModal] = useState(false);
 
   const load = async () => {
     if (!caseId) return;
@@ -73,6 +83,10 @@ export default function CaseDetailPage() {
       setSharedContacts(sc);
       setCctvDetections(cctv);
       setSummaryData(summary);
+      // Load document status (may come from getCase or dedicated endpoint)
+      setDocStatus(c.document_status ?? "DRAFT");
+      setReviewedBy(c.reviewed_by_user_id ?? null);
+      setReviewedAt(c.reviewed_at ?? null);
     } catch {
       setError("Failed to load case data.");
     } finally {
@@ -104,73 +118,103 @@ export default function CaseDetailPage() {
   });
 
   const highCount = events.filter((e) => e.severity === "HIGH").length;
-  const commonContacts = new Set(
-    events.filter((e) => e.event_type === "COMMON_CONTACT").map((e) => e.detail.common_number as string)
-  ).size;
+  const commonContacts = sharedContacts.length;
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <Link to="/" className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors mb-2 block">← All Cases</Link>
-            <div className="w-48 h-6 bg-slate-200 rounded animate-pulse" />
-            <div className="w-32 h-3 bg-slate-100 rounded animate-pulse mt-2" />
-          </div>
-        </div>
-        <div className="grid grid-cols-5 gap-4 mb-6">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="card border-l-2 border-l-indigo-600">
-              <div className="w-24 h-3 bg-slate-100 rounded animate-pulse mb-2" />
-              <div className="w-16 h-8 bg-slate-200 rounded animate-pulse" />
-            </div>
-          ))}
-        </div>
-        <div className="border-b border-zinc-200 mb-6 pb-2">
-          <div className="flex gap-4">
-            <div className="w-16 h-4 bg-slate-200 rounded animate-pulse" />
-            <div className="w-16 h-4 bg-slate-200 rounded animate-pulse" />
-            <div className="w-16 h-4 bg-slate-200 rounded animate-pulse" />
-          </div>
-        </div>
-        <div className="bg-slate-100 animate-pulse w-full h-[400px] rounded-lg" />
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-3rem)]">
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-500 mb-2" />
+        <span className="text-sm text-zinc-500">Loading case details...</span>
       </div>
     );
   }
 
-  if (!caseData) return <div className="p-8 text-red-600">{error || "Case not found."}</div>;
+  if (error || !caseData) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-3rem)]">
+        <AlertTriangle className="w-8 h-8 text-red-500 mb-2" />
+        <span className="text-sm text-red-500">{error || "Case not found."}</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="px-6 py-6 font-sans">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <Link to="/" className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors mb-2 block">← All Cases</Link>
-          <h1 className="text-xl font-semibold text-zinc-900">{caseData.name}</h1>
+          <h1 className="text-xl font-bold text-zinc-950 pr-2">{caseData.name}</h1>
           <p className="text-xs text-zinc-400 mt-0.5">
             Created {new Date(caseData.created_at).toLocaleDateString("en-IN")} · ID: {caseId?.slice(0, 8)}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            id="btn-upload-records"
-            onClick={() => navigate(`/cases/${caseId}/upload`)}
-            className="flex items-center gap-2 px-4 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
-          >
-            <Upload size={14} />
-            Upload Records
-          </button>
-          <button
-            id="btn-run-analysis"
-            onClick={handleAnalyze}
-            disabled={analyzing || suspects.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-zinc-700 transition-colors ring-1 ring-indigo-700 ring-offset-1"
-          >
-            {analyzing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            {analyzing ? "Analyzing…" : "Run Analysis"}
-          </button>
+          {/* Section 65B document status badge */}
+          {caseData && (
+            <DocumentStatusBadge
+              status={docStatus}
+              reviewedBy={reviewedBy}
+              reviewedAt={reviewedAt}
+            />
+          )}
+
+          {role !== "viewer" && (
+            <button
+              id="btn-export-65b-worksheet"
+              onClick={() => setShowWorksheetModal(true)}
+              className="flex items-center gap-2 px-3 py-2 border border-indigo-200 bg-indigo-50 rounded-lg text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+            >
+              <FileText size={13} />
+              65B Worksheet
+            </button>
+          )}
+
+          {role !== "viewer" && (
+            <button
+              id="btn-upload-records"
+              onClick={() => navigate(`/cases/${caseId}/upload`)}
+              className="flex items-center gap-2 px-4 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+            >
+              <Upload size={14} />
+              Upload Records
+            </button>
+          )}
+          {role !== "viewer" && (
+            <button
+              id="btn-run-analysis"
+              onClick={handleAnalyze}
+              disabled={analyzing || suspects.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-zinc-700 transition-colors ring-1 ring-indigo-700 ring-offset-1"
+            >
+              {analyzing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+              {analyzing ? "Analyzing…" : "Run Analysis"}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Section 65B Worksheet Modal */}
+      {showWorksheetModal && caseData && (
+        <CertWorksheetModal
+          caseId={caseId!}
+          caseName={caseData.name}
+          documentStatus={docStatus}
+          reviewedBy={reviewedBy}
+          reviewedAt={reviewedAt}
+          userRole={role}
+          onClose={() => setShowWorksheetModal(false)}
+          onStatusChange={(newStatus) => {
+            setDocStatus(newStatus);
+            if (newStatus === "OFFICER_REVIEWED") {
+              // Fetch fresh reviewer info from server
+              api.getDocumentStatus(caseId!).then((res) => {
+                setReviewedBy(res.reviewed_by_user_id);
+                setReviewedAt(res.reviewed_at);
+              }).catch(() => {});
+            }
+          }}
+        />
+      )}
 
       {analyzeMsg && (
         <div className={`mb-4 p-3 rounded-lg text-sm border ${analyzeMsg.startsWith("Error") ? "bg-red-50 border-red-200 text-red-700" : "bg-zinc-50 border-zinc-200 text-zinc-700"}`}>

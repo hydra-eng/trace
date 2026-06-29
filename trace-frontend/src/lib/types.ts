@@ -4,6 +4,10 @@ export interface CaseOut {
   created_at: string;
   suspect_count: number;
   event_count: number;
+  // Section 65B state machine
+  document_status?: string;           // DRAFT | PENDING_REVIEW | OFFICER_REVIEWED
+  reviewed_by_user_id?: string | null;
+  reviewed_at?: string | null;
 }
 
 export interface SuspectOut {
@@ -54,6 +58,8 @@ export interface GraphNode {
   tower_lon?: number;
   centrality?: number;
   centrality_label?: string;
+  betweenness_centrality?: number;
+  degree_centrality?: number;
 }
 
 export interface GraphEdge {

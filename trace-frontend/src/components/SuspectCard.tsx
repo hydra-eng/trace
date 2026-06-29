@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import type { SuspectOut, EventOut } from "../lib/types";
 import { Trash2 } from "lucide-react";
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
 
 interface Props {
   suspect: SuspectOut;
@@ -11,6 +12,7 @@ interface Props {
 
 export default function SuspectCard({ suspect, events, onDelete }: Props) {
   const navigate = useNavigate();
+  const role = useRole();
 
   const suspectEvents = events.filter((e) => e.involved_suspects.includes(suspect.label));
   const imeiCount = suspectEvents.filter((e) => e.event_type === "IMEI_SWAP").length;
@@ -33,23 +35,25 @@ export default function SuspectCard({ suspect, events, onDelete }: Props) {
           <p className="text-sm font-bold text-zinc-900 group-hover:text-zinc-700 transition-colors">
             {suspect.label}
           </p>
-          <button
-            onClick={async (e) => {
-              e.stopPropagation();
-              if (window.confirm(`Are you sure you want to delete suspect "${suspect.label}"? All associated CDR/IPDR rows will be permanently deleted.`)) {
-                try {
-                  await api.deleteSuspect(suspect.id);
-                  if (onDelete) onDelete(suspect.id);
-                } catch (err: unknown) {
-                  alert("Failed to delete suspect: " + String(err));
+          {role === "sp" && (
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (window.confirm(`Are you sure you want to delete suspect "${suspect.label}"? All associated CDR/IPDR rows will be permanently deleted.`)) {
+                  try {
+                    await api.deleteSuspect(suspect.id);
+                    if (onDelete) onDelete(suspect.id);
+                  } catch (err: unknown) {
+                    alert("Failed to delete suspect: " + String(err));
+                  }
                 }
-              }
-            }}
-            className="p-1 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-            title="Delete Suspect"
-          >
-            <Trash2 size={12} />
-          </button>
+              }}
+              className="p-1 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              title="Delete Suspect"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
         </div>
         <p className="text-[11px] font-mono text-zinc-500 mb-4 break-all">{suspect.primary_msisdn}</p>
         {suspect.prior_incident_count !== undefined && suspect.prior_incident_count > 0 && (

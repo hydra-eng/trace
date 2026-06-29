@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Case, Suspect, Event
 from schemas import AnalysisSummary
+from routers.auth import require_permission
 
 # ── Original engines ───────────────────────────────────────────────────────────
 from engines.imei_swap import detect_imei_swaps, detect_multi_sim_imei
@@ -21,7 +22,7 @@ router = APIRouter(tags=["analysis"])
 
 
 @router.post("/cases/{case_id}/analyze", response_model=AnalysisSummary)
-def run_analysis(case_id: str, request: Request, db: Session = Depends(get_db)):
+def run_analysis(case_id: str, request: Request, db: Session = Depends(get_db), current_user: dict = Depends(require_permission("run_analysis"))):
     case = db.query(Case).filter(Case.id == case_id).first()
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")

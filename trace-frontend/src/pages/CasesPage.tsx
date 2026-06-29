@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
 import type { CaseOut } from "../lib/types";
 import { Plus, Folder, Calendar, Users, AlertTriangle, Trash2 } from "lucide-react";
 
@@ -9,6 +10,7 @@ function formatDate(s: string) {
 }
 
 export default function CasesPage() {
+  const role = useRole();
   const [cases, setCases] = useState<CaseOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -78,18 +80,20 @@ export default function CasesPage() {
             {cases.length} active {cases.length === 1 ? "case" : "cases"}
           </p>
         </div>
-        <button
-          id="btn-new-case"
-          onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-700 transition-colors"
-        >
-          <Plus size={15} />
-          New Case
-        </button>
+        {role !== "viewer" && (
+          <button
+            id="btn-new-case"
+            onClick={() => setShowForm((v) => !v)}
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-700 transition-colors"
+          >
+            <Plus size={15} />
+            New Case
+          </button>
+        )}
       </div>
 
       {/* Inline create form */}
-      {showForm && (
+      {showForm && role !== "viewer" && (
         <div className="card mb-6">
           <h2 className="text-sm font-semibold text-zinc-900 mb-3">New Investigation Case</h2>
           <form onSubmit={handleCreate} className="flex gap-3 items-center">
@@ -98,24 +102,17 @@ export default function CasesPage() {
               type="text"
               value={caseName}
               onChange={(e) => setCaseName(e.target.value)}
-              placeholder="e.g. Operation Sandstorm"
-              className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent"
-              autoFocus
+              placeholder="FIR Number / Case Description"
+              className="flex-1 px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:border-zinc-400"
+              disabled={creating}
             />
             <button
-              id="btn-create-case"
+              id="btn-submit-case"
               type="submit"
               disabled={creating || !caseName.trim()}
-              className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-zinc-700 transition-colors"
+              className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {creating ? "Creating…" : "Create Case"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="px-4 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-600 hover:bg-zinc-50 transition-colors"
-            >
-              Cancel
+              {creating ? "Creating..." : "Create"}
             </button>
           </form>
         </div>
@@ -164,16 +161,18 @@ export default function CasesPage() {
                   </h2>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[10px] font-mono text-zinc-400 bg-zinc-50 border border-zinc-150 rounded px-1.5 py-0.5">{c.id.slice(0, 8)}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(c.id);
-                      }}
-                      className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                      title="Delete Case"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    {role === "sp" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(c.id);
+                        }}
+                        className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Delete Case"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

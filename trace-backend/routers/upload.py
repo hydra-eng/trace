@@ -7,6 +7,7 @@ import pandas as pd
 from database import get_db
 from models import Case, Suspect, CDRRecord, IPDRRecord
 from schemas import UploadResponse
+from routers.auth import require_permission
 
 router = APIRouter(tags=["upload"])
 
@@ -113,6 +114,7 @@ async def upload_records(
     cdr_file: UploadFile = File(...),
     ipdr_file: UploadFile = File(None),
     db: Session = Depends(get_db),
+    current_user: dict = Depends(require_permission("upload_cdr")),
 ):
     case = db.query(Case).filter(Case.id == case_id).first()
     if not case:

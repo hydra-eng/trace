@@ -41,6 +41,18 @@ class Case(Base):
     name = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # ── Section 65B document state machine ────────────────────────────────────
+    # DRAFT           — default; every PDF export carries "DRAFT — AUTOMATED ANALYSIS, UNVERIFIED" watermark
+    # PENDING_REVIEW  — officer has opened the worksheet for review but not acted
+    # OFFICER_REVIEWED — officer used "Mark Reviewed" (logged with user_id + timestamp).
+    #                    Does NOT add a signature or remove watermark — only unlocks
+    #                    the printable version with explicit blank signature lines.
+    # The PDF NEVER reaches a "certified" state inside the app; that exists only
+    # on the physically-signed printed document.
+    document_status = Column(Text, nullable=False, default="DRAFT")
+    reviewed_by_user_id = Column(Text, nullable=True)   # JWT sub (username) of the officer
+    reviewed_at = Column(DateTime, nullable=True)
+
     suspects = relationship("Suspect", back_populates="case", cascade="all, delete-orphan")
     events = relationship("Event", back_populates="case", cascade="all, delete-orphan")
 
@@ -153,6 +165,8 @@ class CCTVDetection(Base):
     confidence_score = Column(Float)               # 0.0–1.0 face match confidence
     frame_image_path = Column(Text)              # path to stored frame PNG
     matched_tower_id = Column(Text, nullable=True)  # tower that fired within ±15 min
+    cdr_tower_timestamp = Column(DateTime, nullable=True)
+    time_delta_minutes = Column(Float, nullable=True)
     correlation_status = Column(Text)            # "CONFIRMED" / "PROBABLE" / "UNMATCHED"
     notes = Column(Text)
 

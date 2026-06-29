@@ -153,6 +153,8 @@ def run_analysis_for_case(db: Session, case_id: str):
     print(f"  Analysis ran: {total} events generated ({event_counts})")
 
 def main():
+    print("Dropping existing database tables for schema migration...")
+    Base.metadata.drop_all(bind=engine)
     print("Initializing database tables...")
     Base.metadata.create_all(bind=engine)
 
@@ -241,6 +243,8 @@ def main():
             "confidence_score": 0.91,
             "frame_image_path": "/static/cctv/frame_kalyan_ong_01.jpg",
             "matched_tower_id": "TWR-ONG-001",
+            "cdr_tower_timestamp": datetime(2024, 1, 2, 14, 58, 0),
+            "time_delta_minutes": 6.0,
             "correlation_status": "CONFIRMED",
             "notes": "Subject detected at Ongole Main Market 6 min before CDR tower TWR-ONG-001 registration"
         },
@@ -248,12 +252,14 @@ def main():
             "suspect_id": venkatesh_id,
             "camera_id": "CAM-CDD-NH16-01",
             "camera_name": "Chirala NH-16 Toll Plaza Camera",
-            "camera_lat": 15.8180,
-            "camera_lon": 80.3520,
+            "camera_lat": 15.818,
+            "camera_lon": 80.352,
             "detection_timestamp": datetime(2024, 1, 2, 15, 5, 0),
             "confidence_score": 0.87,
             "frame_image_path": "/static/cctv/frame_venkatesh_cdd_01.jpg",
             "matched_tower_id": "TWR-CDD-001",
+            "cdr_tower_timestamp": datetime(2024, 1, 2, 15, 5, 0),
+            "time_delta_minutes": 0.0,
             "correlation_status": "CONFIRMED",
             "notes": "Subject detected at Chirala toll gate simultaneous with CDR tower TWR-CDD-001 co-location event"
         },
@@ -267,6 +273,8 @@ def main():
             "confidence_score": 0.79,
             "frame_image_path": "/static/cctv/frame_kalyan_bus_01.jpg",
             "matched_tower_id": "TWR-ONG-002",
+            "cdr_tower_timestamp": datetime(2024, 1, 5, 2, 13, 0),
+            "time_delta_minutes": 6.0,
             "correlation_status": "CONFIRMED",
             "notes": "Night-time detection at 02:19 hrs — correlates with CDR IMEI swap event at 02:13 hrs same night"
         },

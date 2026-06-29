@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from database import get_db
+from routers.auth import require_permission
 from models import Suspect, CDRRecord, IPDRRecord, Event, Case, PriorIncident, CCTVDetection
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -585,11 +586,21 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         band = "LOW"
         band_color = colors.HexColor('#16A34A')
 
-    story.append(section_heading("REPEAT OFFENDER ASSESSMENT"))
+    story.append(section_heading("REPEAT OFFENDER RISK ASSESSMENT"))
+    
+    action = "Routine monitoring"
+    if band == "CRITICAL":
+        action = "Immediate escalation to SP/DIG level"
+    elif band == "HIGH":
+        action = "Priority surveillance — daily reporting"
+    elif band == "MEDIUM":
+        action = "Elevated investigation — weekly review"
+
     ro_data = [
-        [Paragraph("AI Risk Score (Current Case)", body_style), Paragraph(f"{anomaly_score}/100", body_style)],
-        [Paragraph("Recidivism Adjustment", body_style), Paragraph(f"+{adjustment} ({prior_count} prior incidents)", body_style)],
-        [Paragraph("<b>FINAL COMPOSITE RISK SCORE</b>", body_style), Paragraph(f"<b>{final_score}/100 — {band}</b>", ParagraphStyle('final_score_style', parent=body_style, textColor=band_color, fontName='Times-Bold'))]
+        [Paragraph("Base Anomaly Score (Current Case)", body_style), Paragraph(f"{anomaly_score}/100", body_style)],
+        [Paragraph("Prior Incident Adjustment", body_style), Paragraph(f"+{adjustment} ({prior_count} record{'s' if prior_count != 1 else ''})", body_style)],
+        [Paragraph("<b>FINAL COMPOSITE SCORE</b>", body_style), Paragraph(f"<b>{final_score}/100 — {band}</b>", ParagraphStyle('final_score_style', parent=body_style, textColor=band_color, fontName='Times-Bold'))],
+        [Paragraph("Recommended Action", body_style), Paragraph(action, body_style)]
     ]
     ro_table = Table(ro_data, colWidths=[200, 295])
     ro_table.setStyle(TableStyle([
@@ -609,16 +620,29 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
 
     if priors:
         story.append(Paragraph("<b>Prior Incident Record</b>", ParagraphStyle('sub_prior', fontName='Times-Bold', fontSize=8, textColor=colors.black, spaceBefore=2, spaceAfter=2)))
-        prior_table_data = [["Case Reference", "Offence", "Date", "Jurisdiction", "Outcome"]]
-        for p in priors:
+        prior_table_data = [["FIR No.", "Offence", "Date", "District", "Outcome", "Court"]]
+        for idx, p in enumerate(priors, start=1):
+            outcome_text = p.outcome or ""
+            if "Charge Sheet" in outcome_text or "Convicted" in outcome_text:
+                oc_color = colors.HexColor('#DC2626')
+            elif "FIR" in outcome_text:
+                oc_color = colors.HexColor('#D97706')
+            elif "Acquitted" in outcome_text:
+                oc_color = colors.HexColor('#4B5563')
+            else:
+                oc_color = colors.black
+
+            court_name = f"{p.district} District Court" if p.district else "District Court"
+            
             prior_table_data.append([
-                p.case_reference or "",
-                p.offence_type or "",
+                Paragraph(p.case_reference or "", body_style),
+                Paragraph(p.offence_type or "", body_style),
                 p.incident_date.strftime("%Y-%m-%d") if p.incident_date else "",
                 p.district or "",
-                p.outcome or ""
+                Paragraph(f"<b>{outcome_text}</b>", ParagraphStyle(f'ro_oc_{idx}', parent=body_style, textColor=oc_color, fontName='Times-Bold')),
+                Paragraph(court_name, body_style)
             ])
-        prior_table = Table(prior_table_data, colWidths=[130, 130, 60, 75, 100])
+        prior_table = Table(prior_table_data, colWidths=[100, 110, 55, 65, 80, 85])
         prior_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EAEAEA')),
             ('FONTNAME', (0,0), (-1,0), 'Times-Bold'),
@@ -633,7 +657,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
         ]))
         story.append(prior_table)
     else:
-        story.append(Paragraph("<i>No prior incidents registered against this subject in the TRACE database.</i>", ParagraphStyle('no_prior', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=2)))
+        story.append(Paragraph("<i>No prior incidents registered against this subject.</i>", ParagraphStyle('no_prior', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=2)))
 
     story.append(Spacer(1, 1))
 
@@ -1105,10 +1129,9 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     # CCTV SURVEILLANCE DETECTIONS Section
     story.append(section_heading("CCTV SURVEILLANCE DETECTIONS"))
     story.append(Paragraph(
-        "<i>CCTV detections are derived from video analytics processing "
-        "of available surveillance footage. Face match confidence scores are provided by the "
-        "computer vision pipeline. All detections have been correlated against CDR tower records "
-        "for temporal verification.</i>",
+        "<i>CCTV detections sourced from integrated surveillance grid. "
+        "Face match confidence from AI detection pipeline. All detections correlated against "
+        "CDR tower records for temporal verification.</i>",
         ParagraphStyle('cctv_note', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=2)
     ))
     
@@ -1116,7 +1139,7 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
     cctv_detections = sorted(cctv_detections, key=lambda d: d.detection_timestamp)
     
     if cctv_detections:
-        cctv_table_data = [["Camera ID", "Location", "Detection Time", "Face Match %", "CDR Correlation", "Status"]]
+        cctv_table_data = [["Camera ID", "Location", "Detection Time", "Confidence", "CDR Tower", "Delta", "Status"]]
         cctv_style_commands = [
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#EAEAEA')),
             ('FONTNAME', (0,0), (-1,0), 'Times-Bold'),
@@ -1138,21 +1161,56 @@ def build_full_report(suspect: Suspect, db: Session, report_id: str) -> list:
                 status_color = colors.HexColor('#D97706')
             else:
                 status_color = colors.HexColor('#4B5563')
-                
+            
+            if d.correlation_status == "UNMATCHED":
+                delta_str = "—"
+            else:
+                delta_val = d.time_delta_minutes
+                if delta_val is not None:
+                    delta_str = f"+{delta_val} min" if delta_val > 0 else f"{delta_val} min"
+                else:
+                    delta_str = "—"
+                    
             cctv_table_data.append([
                 d.camera_id or "",
                 d.camera_name or "",
                 d.detection_timestamp.strftime("%Y-%m-%d %H:%M") if d.detection_timestamp else "",
                 f"{int(d.confidence_score * 100)}%" if d.confidence_score else "—",
-                d.notes or "—",
+                d.matched_tower_id or "—",
+                delta_str,
                 Paragraph(f"<b>{status_text}</b>", ParagraphStyle(f'cctv_status_{idx}', parent=body_style, textColor=status_color, fontSize=7.5, fontName='Times-Bold'))
             ])
             
-        cctv_table = Table(cctv_table_data, colWidths=[75, 110, 80, 55, 115, 60])
+        cctv_table = Table(cctv_table_data, colWidths=[65, 105, 80, 50, 70, 65, 60])
         cctv_table.setStyle(TableStyle(cctv_style_commands))
         story.append(cctv_table)
+        
+        # Amber warning box
+        amber_note_style = ParagraphStyle(
+            'amber_note',
+            fontName='Times-Bold',
+            fontSize=7.5,
+            textColor=colors.HexColor('#D97706'),
+            alignment=TA_CENTER
+        )
+        amber_box_data = [[Paragraph(
+            "NOTE: CCTV face detection confidence does not constitute independent legal identification. "
+            "All matches must be verified by a human officer before use in court proceedings.",
+            amber_note_style
+        )]]
+        amber_box = Table(amber_box_data, colWidths=[495])
+        amber_box.setStyle(TableStyle([
+            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#F59E0B')),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FEF3C7')),
+            ('TOPPADDING', (0,0), (-1,-1), 4),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+            ('LEFTPADDING', (0,0), (-1,-1), 6),
+            ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ]))
+        story.append(Spacer(1, 1))
+        story.append(amber_box)
     else:
-        story.append(Paragraph("<i>No CCTV detection records available for this subject.</i>", ParagraphStyle('no_cctv', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=2)))
+        story.append(Paragraph("<i>No CCTV detections recorded for this subject.</i>", ParagraphStyle('no_cctv', fontName='Times-Italic', fontSize=7.5, textColor=C_MUTED, spaceAfter=2)))
         
     story.append(Spacer(1, 1))
 
@@ -1529,7 +1587,7 @@ def _build_pdf(suspect: Suspect, db: Session) -> bytes:
     return buf.getvalue()
 
 @router.get("/suspects/{suspect_id}/report.pdf")
-def download_report(suspect_id: str, request: Request, db: Session = Depends(get_db)):
+def download_report(suspect_id: str, request: Request, db: Session = Depends(get_db), current_user: dict = Depends(require_permission("download_pdf"))):
     suspect = db.query(Suspect).filter(Suspect.id == suspect_id).first()
     if not suspect:
         raise HTTPException(status_code=404, detail="Suspect not found")

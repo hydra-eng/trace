@@ -7,6 +7,7 @@ import SuspectProfilePage from "./pages/SuspectProfilePage";
 import { DashboardPage, SuspectsPage, ReportsPage, SettingsPage, GeoIntelPage, AuditTrailPage } from "./pages/ExtraPages";
 import CctvPluginPage from "./pages/CctvPluginPage";
 import { api } from "./lib/api";
+import { useUserIdentity } from "./lib/auth";
 import type { CaseOut } from "./lib/types";
 import {
   LayoutDashboard,
@@ -152,23 +153,25 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [password, setPassword] = useState("PrakasamPolice_2026!");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showDemoAccounts, setShowDemoAccounts] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) return;
     setLoading(true);
     setError("");
 
-    setTimeout(() => {
-      if (username === "investigator" && password === "PrakasamPolice_2026!") {
-        localStorage.setItem("trace_logged_in", "true");
-        onLogin();
-        navigate("/");
-      } else {
-        setError("Invalid secure credentials.");
-      }
+    try {
+      const res = await api.login(username, password);
+      localStorage.setItem("token", res.token);
+      localStorage.setItem("trace_logged_in", "true");
+      onLogin();
+      navigate("/");
+    } catch (err: any) {
+      setError(err.message || "Invalid secure credentials.");
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -270,6 +273,52 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
                 {loading ? "Authenticating..." : "Authenticate Session"}
               </button>
             </form>
+
+            {/* Demo Accounts Helper List */}
+            <div className="mt-4 border border-slate-200 bg-slate-50/50 rounded overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowDemoAccounts(!showDemoAccounts)}
+                className="w-full px-4 py-2.5 text-[10px] font-bold text-slate-600 uppercase tracking-widest hover:bg-slate-100 transition-colors flex items-center justify-between font-mono focus:outline-none"
+              >
+                <span>Demo Accounts / Quick Access</span>
+                <span className="text-[12px]">{showDemoAccounts ? "▲" : "▼"}</span>
+              </button>
+              {showDemoAccounts && (
+                <div className="p-3 border-t border-slate-200 text-[11px] font-mono text-slate-500 space-y-2.5 bg-white">
+                  <div 
+                    onClick={() => { setUsername("sp_prakasham"); setPassword("SP_Prakasham_2026!"); }}
+                    className="p-1.5 border border-transparent hover:border-slate-300 hover:bg-slate-50 rounded cursor-pointer transition-all"
+                  >
+                    <div className="font-semibold text-slate-800 flex justify-between">
+                      <span>Superintendent of Police (sp)</span>
+                      <span className="text-[9px] bg-red-100 text-red-800 px-1.5 py-0.2 rounded font-sans uppercase font-bold">Admin</span>
+                    </div>
+                    <div className="text-[10px] mt-0.5 text-slate-400">User: sp_prakasham / Pass: SP_Prakasham_2026!</div>
+                  </div>
+                  <div 
+                    onClick={() => { setUsername("investigator"); setPassword("PrakasamPolice_2026!"); }}
+                    className="p-1.5 border border-transparent hover:border-slate-300 hover:bg-slate-50 rounded cursor-pointer transition-all"
+                  >
+                    <div className="font-semibold text-slate-800 flex justify-between">
+                      <span>Inspector CID (inspector)</span>
+                      <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-sans uppercase font-bold">Write</span>
+                    </div>
+                    <div className="text-[10px] mt-0.5 text-slate-400">User: investigator / Pass: PrakasamPolice_2026!</div>
+                  </div>
+                  <div 
+                    onClick={() => { setUsername("constable"); setPassword("Constable_View_2026!"); }}
+                    className="p-1.5 border border-transparent hover:border-slate-300 hover:bg-slate-50 rounded cursor-pointer transition-all"
+                  >
+                    <div className="font-semibold text-slate-800 flex justify-between">
+                      <span>Constable (viewer)</span>
+                      <span className="text-[9px] bg-zinc-100 text-zinc-800 px-1.5 py-0.2 rounded font-sans uppercase font-bold">Read-Only</span>
+                    </div>
+                    <div className="text-[10px] mt-0.5 text-slate-400">User: constable / Pass: Constable_View_2026!</div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Footer */}
@@ -288,6 +337,19 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 }
 
 function NavBar({ onLogout }: { onLogout: () => void }) {
+  const { name, badge, role } = useUserIdentity();
+  
+  const roleColors: Record<string, string> = {
+    sp: "bg-red-600 text-white border border-red-700",
+    inspector: "bg-amber-500 text-zinc-950 font-bold border border-amber-600",
+    viewer: "bg-zinc-600 text-zinc-200 border border-zinc-700"
+  };
+  const roleLabels: Record<string, string> = {
+    sp: "SP (Admin Access)",
+    inspector: "Inspector (Write Access)",
+    viewer: "Read-only access"
+  };
+
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-zinc-200 px-6 py-0 flex items-center justify-between h-12 shrink-0 font-sans">
       <div className="flex items-center gap-3">
@@ -309,9 +371,15 @@ function NavBar({ onLogout }: { onLogout: () => void }) {
         </span>
       </div>
       <div className="flex items-center gap-4 text-xs font-mono">
-        <span className="text-zinc-600 bg-zinc-100 border border-zinc-200 px-2.5 py-1 rounded">
-          Session: Inspector Sharma
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="text-right hidden sm:block">
+            <div className="text-zinc-950 font-bold leading-none">{name}</div>
+            <div className="text-[9px] text-zinc-500 mt-0.5">{badge ? `Badge: ${badge}` : ''}</div>
+          </div>
+          <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${roleColors[role] || 'bg-zinc-500 text-white'}`}>
+            {roleLabels[role] || role}
+          </span>
+        </div>
         <button
           onClick={onLogout}
           className="text-zinc-500 hover:text-zinc-900 px-3 py-1 border border-zinc-200 hover:bg-zinc-50 rounded transition-colors cursor-pointer"
@@ -463,6 +531,7 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem("trace_logged_in");
+    localStorage.removeItem("token");
     setIsLoggedIn(false);
   };
 

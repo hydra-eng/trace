@@ -479,7 +479,8 @@ export function SettingsPage() {
     setBackendStatus("checking");
     const t0 = Date.now();
     try {
-      const res = await fetch("http://localhost:8000/health", { signal: AbortSignal.timeout(4000) });
+      const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const res = await fetch(`${apiBase}/health`, { signal: AbortSignal.timeout(4000) });
       if (res.ok) {
         setBackendPing(Date.now() - t0);
         setBackendStatus("online");
@@ -623,15 +624,12 @@ export function SettingsPage() {
                 <div className="flex items-center gap-2">
                   {backendStatus === "checking" && <Loader2 size={14} className="animate-spin text-zinc-400" />}
                   {backendStatus === "online" && <CheckCircle size={14} className="text-green-600" />}
-                  {backendStatus === "offline" && api.isMockMode() && <Shield size={14} className="text-indigo-600 animate-pulse" />}
-                  {backendStatus === "offline" && !api.isMockMode() && <XCircle size={14} className="text-red-500" />}
+                  {backendStatus === "offline" && <XCircle size={14} className="text-red-500" />}
                   <span className="text-xs font-medium text-zinc-800">
                     {backendStatus === "checking"
                       ? "Checking..."
                       : backendStatus === "online"
                       ? "Backend Online"
-                      : api.isMockMode()
-                      ? "Demo Mode (Offline)"
                       : "Backend Offline"}
                   </span>
                 </div>
@@ -649,29 +647,20 @@ export function SettingsPage() {
                 </div>
               </div>
 
-              {backendStatus === "offline" && api.isMockMode() ? (
-                <div className="bg-indigo-50 border border-indigo-200 rounded p-3">
-                  <p className="text-[10px] font-mono text-indigo-700 font-semibold mb-1">OFFLINE DEMO MODE ACTIVE</p>
-                  <p className="text-[10px] text-indigo-600 leading-relaxed font-sans">
-                    The local server at <code className="font-mono bg-indigo-100 text-indigo-800 px-1 rounded">http://localhost:8000</code> was not detected. 
-                    TRACE has activated the serverless fallback. All analytics, mapping, and database functions are simulated in-browser with preloaded Andhra Pradesh cyber cell data.
-                  </p>
-                </div>
-              ) : backendStatus === "offline" && (
+              {backendStatus === "offline" && (
                 <div className="bg-red-50 border border-red-200 rounded p-3">
                   <p className="text-[10px] font-mono text-red-700 font-semibold mb-1">CONNECTION FAILED</p>
-                  <p className="text-[10px] text-red-600">Cannot reach http://localhost:8000. Start the backend server:</p>
-                  <code className="block mt-1.5 text-[10px] bg-red-100 text-red-800 p-1.5 rounded font-mono">
-                    uvicorn main:app --reload
-                  </code>
+                  <p className="text-[10px] text-red-600">
+                    Cannot reach the TRACE API backend at <code className="font-mono bg-red-100 text-red-800 px-1 rounded">{import.meta.env.VITE_API_URL || "http://localhost:8000"}</code>. Please ensure the backend service is running and reachable.
+                  </p>
                 </div>
               )}
 
               <div className="border-t border-zinc-50 pt-3 space-y-1">
-                {field("Endpoint", "http://localhost:8000", true)}
+                {field("Endpoint", import.meta.env.VITE_API_URL || "http://localhost:8000", true)}
                 {field("TRACE Version", "v1.0.0", true)}
-                {field("Database", "SQLite · trace.db", true)}
-                {field("CORS Origin", "localhost:5173", true)}
+                {field("Database", "PostgreSQL / SQLite", true)}
+                {field("CORS Origin", "https://trace-prakasham.web.app", true)}
               </div>
             </div>
           </div>

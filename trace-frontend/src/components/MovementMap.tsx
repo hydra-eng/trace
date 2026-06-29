@@ -12,7 +12,6 @@ import {
   type MapArcDatum,
 } from "@/components/ui/map";
 import { cn } from "@/lib/utils";
-import { MOCK_ROUTES, decodePolyline } from "../lib/mockRoutes";
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const INITIAL_CENTER: [number, number] = [79.7400, 15.9000];
@@ -53,48 +52,35 @@ const ALL_TOWERS = [
   { id: "TWR-HYD-002", name: "LB Nagar",               lat: 17.3453, lon: 78.5479, district: "Hyderabad" },
 ];
 
-// Helper to fuzzy-match coordinates in cache if no exact match is found
-function findClosestCachedRoute(
-  start: [number, number],
-  end: [number, number]
-): [number, number][] | null {
-  let closestPoly: string | null = null;
-  let minDistance = Infinity;
-  let shouldReverse = false;
+// Decodes OSRM/Google polyline geometry string (5-decimal precision)
+// into an array of [longitude, latitude] coordinates.
+function decodePolyline(str: string): [number, number][] {
+  let index = 0, len = str.length;
+  let lat = 0, lng = 0;
+  const coordinates: [number, number][] = [];
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = str.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
 
-  const distSq = (p1: [number, number], p2: [number, number]) => {
-    return Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2);
-  };
+    shift = 0;
+    result = 0;
+    do {
+      b = str.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
 
-  for (const key of Object.keys(MOCK_ROUTES)) {
-    const parts = key.split("_");
-    const c1 = parts[0].split(",").map(Number) as [number, number];
-    const c2 = parts[1].split(",").map(Number) as [number, number];
-
-    // Check forward match: start near c1, end near c2
-    const dForward = distSq(start, c1) + distSq(end, c2);
-    if (dForward < minDistance) {
-      minDistance = dForward;
-      closestPoly = MOCK_ROUTES[key];
-      shouldReverse = false;
-    }
-
-    // Check backward match: start near c2, end near c1
-    const dBackward = distSq(start, c2) + distSq(end, c1);
-    if (dBackward < minDistance) {
-      minDistance = dBackward;
-      closestPoly = MOCK_ROUTES[key];
-      shouldReverse = true;
-    }
+    coordinates.push([lng * 1e-5, lat * 1e-5]);
   }
-
-  // Snapped to coordinates within a reasonable threshold (approx 15km)
-  if (closestPoly && minDistance < 0.02) {
-    const decoded = decodePolyline(closestPoly);
-    return shouldReverse ? [...decoded].reverse() : decoded;
-  }
-
-  return null;
+  return coordinates;
 }
 
 // ── OSRM Road Routing ──────────────────────────────────────────────────────────
@@ -114,31 +100,7 @@ async function fetchOsrmRoute(
     }
 
     const fetchSegment = async (): Promise<[number, number][]> => {
-      // 1. Exact & reverse cache lookup
-      const startLon = start[0].toFixed(4);
-      const startLat = start[1].toFixed(4);
-      const endLon = end[0].toFixed(4);
-      const endLat = end[1].toFixed(4);
-
-      const key1 = `${startLon},${startLat}_${endLon},${endLat}`;
-      const key2 = `${endLon},${endLat}_${startLon},${startLat}`;
-
-      const poly = MOCK_ROUTES[key1] || MOCK_ROUTES[key2];
-      if (poly) {
-        const decoded = decodePolyline(poly);
-        if (!MOCK_ROUTES[key1] && MOCK_ROUTES[key2]) {
-          return [...decoded].reverse();
-        }
-        return decoded;
-      }
-
-      // 2. Fuzzy cache lookup
-      const fuzzy = findClosestCachedRoute(start, end);
-      if (fuzzy) {
-        return fuzzy;
-      }
-
-      // 3. Online fallback (if user's environment has access)
+      // Online OSRM routing
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
       const url = `https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?overview=simplified&geometries=polyline`;
@@ -156,30 +118,11 @@ async function fetchOsrmRoute(
         clearTimeout(timeoutId);
       }
 
-      // 4. Ultimate fallback to prevent straight lines: find the closest cached route regardless of threshold
-      let closestPoly: string | null = null;
-      let minDistance = Infinity;
-      let shouldReverse = false;
-      const distSq = (p1: [number, number], p2: [number, number]) => Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2);
-      for (const key of Object.keys(MOCK_ROUTES)) {
-        const parts = key.split("_");
-        const c1 = parts[0].split(",").map(Number) as [number, number];
-        const c2 = parts[1].split(",").map(Number) as [number, number];
-        const dF = distSq(start, c1) + distSq(end, c2);
-        if (dF < minDistance) { minDistance = dF; closestPoly = MOCK_ROUTES[key]; shouldReverse = false; }
-        const dB = distSq(start, c2) + distSq(end, c1);
-        if (dB < minDistance) { minDistance = dB; closestPoly = MOCK_ROUTES[key]; shouldReverse = true; }
-      }
-      if (closestPoly) {
-        const decoded = decodePolyline(closestPoly);
-        return shouldReverse ? [...decoded].reverse() : decoded;
-      }
-
+      // Fallback to straight line
       return [start, end];
     };
     promises.push(fetchSegment());
   }
-
 
   try {
     const segments = await Promise.all(promises);

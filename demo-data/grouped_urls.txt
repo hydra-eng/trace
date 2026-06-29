@@ -1,0 +1,10 @@
+Query_0=https://router.project-osrm.org/route/v1/driving/78.4983,17.4399;78.5479,17.3453;78.4983,17.4399;80.4365,16.3067;78.4983,17.4399;80.648,16.5062?overview=full&geometries=geojson
+Query_1=https://router.project-osrm.org/route/v1/driving/78.5479,17.3453;80.648,16.5062;79.2667,15.7333;80.045,15.51;79.2667,15.7333;80.0499,15.5057?overview=full&geometries=geojson
+Query_2=https://router.project-osrm.org/route/v1/driving/79.9,15.2167;80.35,15.8167;80.045,15.51;79.2667,15.7333;80.045,15.51;80.0499,15.5057?overview=full&geometries=geojson
+Query_3=https://router.project-osrm.org/route/v1/driving/80.045,15.51;80.35,15.8167;80.0499,15.5057;79.2667,15.7333;80.0499,15.5057;80.045,15.51?overview=full&geometries=geojson
+Query_4=https://router.project-osrm.org/route/v1/driving/80.35,15.8167;79.9,15.2167;80.35,15.8167;80.045,15.51;80.4365,16.3067;78.4983,17.4399?overview=full&geometries=geojson
+Query_5=https://router.project-osrm.org/route/v1/driving/80.4365,16.3067;78.5479,17.3453;80.4365,16.3067;80.648,16.5062;80.648,16.5062;78.4983,17.4399?overview=full&geometries=geojson
+Query_6=https://router.project-osrm.org/route/v1/driving/80.648,16.5062;80.4365,16.3067;80.648,16.5062;82.26,16.98;80.648,16.5062;83.21,17.68?overview=full&geometries=geojson
+Query_7=https://router.project-osrm.org/route/v1/driving/81.8,17.0;82.26,16.98;81.8,17.0;83.21,17.68;82.26,16.98;80.648,16.5062?overview=full&geometries=geojson
+Query_8=https://router.project-osrm.org/route/v1/driving/82.26,16.98;81.8,17.0;82.26,16.98;83.21,17.68;83.21,17.68;80.648,16.5062?overview=full&geometries=geojson
+Query_9=https://router.project-osrm.org/route/v1/driving/83.21,17.68;81.8,17.0;83.21,17.68;82.26,16.98?overview=full&geometries=geojson

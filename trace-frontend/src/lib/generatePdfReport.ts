@@ -769,23 +769,31 @@ export function generatePdfReport(profile: any, caseName?: string, cctvDetection
   else if (roBand === "MEDIUM") roBandColor = [217, 119, 6];
 
   let sroy = s2y + 3;
-  sroy = sectionHeading(doc, sroy, "REPEAT OFFENDER ASSESSMENT");
+  sroy = sectionHeading(doc, sroy, "REPEAT OFFENDER RISK ASSESSMENT");
+
+  const roAction = recData.recommended_action || (
+    roBand === "CRITICAL" ? "Immediate escalation to SP/DIG level" : 
+    roBand === "HIGH" ? "Priority surveillance — daily reporting" : 
+    roBand === "MEDIUM" ? "Elevated investigation — weekly review" : 
+    "Routine monitoring"
+  );
 
   const roRows = [
-    ["AI Risk Score (Current Case)", `${recData.base_score}/100`],
-    ["Recidivism Adjustment", `+${adjustment} (${priorsCount} prior incident${priorsCount !== 1 ? "s" : ""})`],
-    ["FINAL COMPOSITE RISK SCORE", `${finalScore}/100 — ${roBand}`]
+    ["Base Anomaly Score (Current Case)", `${recData.base_score}/100`],
+    ["Prior Incident Adjustment", `+${adjustment} (${priorsCount} record${priorsCount !== 1 ? "s" : ""})`],
+    ["FINAL COMPOSITE SCORE", `${finalScore}/100 — ${roBand}`],
+    ["Recommended Action", roAction]
   ];
 
   const roStartX = 14.82;
   roRows.forEach((row, ri) => {
-    const isLast = ri === 2;
+    const isBold = ri === 2;
     setFill(doc, ri % 2 === 1 ? C.bgLight : C.white);
     doc.rect(roStartX, sroy, 180.27, 5.2, "F");
     setDraw(doc, C.border);
     doc.rect(roStartX, sroy, 180.27, 5.2, "S");
     
-    if (isLast) {
+    if (isBold) {
       bold(doc);
       setTextColor(doc, roBandColor as [number, number, number]);
     } else {
@@ -800,7 +808,7 @@ export function generatePdfReport(profile: any, caseName?: string, cctvDetection
   });
   setDraw(doc, [0, 0, 0]);
   doc.setLineWidth(0.4);
-  doc.rect(roStartX, sroy - 15.6, 180.27, 15.6, "S");
+  doc.rect(roStartX, sroy - 20.8, 180.27, 20.8, "S");
   
   sroy += 1.5;
 
@@ -811,14 +819,15 @@ export function generatePdfReport(profile: any, caseName?: string, cctvDetection
     doc.text("Prior Incident Record", roStartX, sroy + 3);
     sroy += 5;
     
-    const priorHeaders = ["Case Reference", "Offence", "Date", "Jurisdiction", "Outcome"];
-    const priorColWidths = [45, 45, 20, 25, 45.27];
+    const priorHeaders = ["FIR No.", "Offence", "Date", "District", "Outcome", "Court"];
+    const priorColWidths = [35, 40, 20, 25, 30, 30.27];
     const priorRowsData = priors.map((p: any) => [
       p.case_reference || p.case_ref || "",
       p.offence_type || p.offence || "",
       p.incident_date ? formatDateShort(p.incident_date) : "",
       p.district || "",
-      p.outcome || ""
+      p.outcome || "",
+      p.district ? `${p.district} District Court` : "District Court"
     ]);
     
     sroy = drawTable(doc, sroy, priorHeaders, priorColWidths, priorRowsData);
@@ -826,7 +835,7 @@ export function generatePdfReport(profile: any, caseName?: string, cctvDetection
     italic(doc);
     size(doc, 7.5);
     setTextColor(doc, C.muted);
-    doc.text("No prior incidents registered against this subject in the TRACE database.", roStartX, sroy + 3);
+    doc.text("No prior incidents registered against this subject.", roStartX, sroy + 3);
     sroy += 5.5;
   }
   sroy += 2;
@@ -1173,30 +1182,54 @@ export function generatePdfReport(profile: any, caseName?: string, cctvDetection
   italic(doc);
   size(doc, 7.5);
   setTextColor(doc, C.muted);
-  const cctvNoteText = "CCTV detections are derived from video analytics processing of available surveillance footage. Face match confidence scores are provided by the computer vision pipeline. All detections have been correlated against CDR tower records for temporal verification.";
+  const cctvNoteText = "CCTV detections sourced from integrated surveillance grid. Face match confidence from AI detection pipeline. All detections correlated against CDR tower records for temporal verification.";
   const cctvNoteLines = doc.splitTextToSize(cctvNoteText, 180.27);
   doc.text(cctvNoteLines, 14.82, s5y + 3);
   s5y += (cctvNoteLines.length * 3.8) + 4;
 
   const cctvList = cctvDetections || [];
   if (cctvList.length > 0) {
-    const cctvHeaders = ["Camera ID", "Location", "Detection Time", "Face Match %", "CDR Correlation", "Status"];
-    const cctvColWidths = [25, 45, 30, 22, 38, 20.27];
-    const cctvRowsData = cctvList.map((d: any) => [
-      d.camera_id || "",
-      d.camera_name || "",
-      d.detection_timestamp ? formatDateShort(d.detection_timestamp) + " " + new Date(d.detection_timestamp).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: false }) : "",
-      d.confidence_score ? `${Math.round(d.confidence_score * 100)}%` : "—",
-      d.notes || "—",
-      d.correlation_status || "—"
-    ]);
+    const cctvHeaders = ["Camera ID", "Location", "Detection Time", "Confidence", "CDR Tower", "Delta", "Status"];
+    const cctvColWidths = [22, 43, 30, 20, 27, 21, 17.27];
+    const cctvRowsData = cctvList.map((d: any) => {
+      let delta_str = "—";
+      if (d.correlation_status !== "UNMATCHED") {
+        const delta_val = d.time_delta_minutes;
+        if (delta_val !== undefined && delta_val !== null) {
+          delta_str = delta_val > 0 ? `+${delta_val} min` : `${delta_val} min`;
+        }
+      }
+      return [
+        d.camera_id || "",
+        d.camera_name || "",
+        d.detection_timestamp ? formatDateShort(d.detection_timestamp) + " " + new Date(d.detection_timestamp).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: false }) : "",
+        d.confidence_score ? `${Math.round(d.confidence_score * 100)}%` : "—",
+        d.matched_tower_id || "—",
+        delta_str,
+        d.correlation_status || "—"
+      ];
+    });
     
     s5y = drawTable(doc, s5y, cctvHeaders, cctvColWidths, cctvRowsData);
+    
+    // Draw amber warning box
+    s5y += 2;
+    doc.setFillColor(254, 243, 199);
+    doc.setDrawColor(245, 158, 11);
+    doc.rect(14.82, s5y, 180.27, 10, "FD");
+    
+    doc.setTextColor(217, 119, 6);
+    bold(doc);
+    size(doc, 6);
+    const disclaimerText = "NOTE: CCTV face detection confidence does not constitute independent legal identification. All matches must be verified by a human officer before use in court proceedings.";
+    const disclaimerLines = doc.splitTextToSize(disclaimerText, 174.27);
+    doc.text(disclaimerLines, 17.82, s5y + 4.2);
+    s5y += 12;
   } else {
     italic(doc);
     size(doc, 7.5);
     setTextColor(doc, C.muted);
-    doc.text("No CCTV detection records available for this subject.", 14.82, s5y + 3);
+    doc.text("No CCTV detections recorded for this subject.", 14.82, s5y + 3);
     s5y += 5.5;
   }
   s5y += 2;

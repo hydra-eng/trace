@@ -86,7 +86,7 @@ function SuspectNode({ data }: NodeProps) {
       <span className="text-[7px] font-mono text-indigo-500/80 truncate w-full text-center">{data.msisdn}</span>
       {data.centrality_label && (
         <span className={`text-[7px] font-extrabold px-1.5 py-0.2 mt-0.5 rounded-sm uppercase tracking-wider ${
-          data.centrality_label === "Hub" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+          data.centrality_label === "HUB" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
         }`}>
           {data.centrality_label}
         </span>
@@ -142,7 +142,7 @@ function CommonContactNode({ data }: NodeProps) {
       <span className="text-[7px] font-bold text-indigo-500 uppercase tracking-widest truncate w-full text-center">COMMON LINK</span>
       {data.centrality_label && (
         <span className={`text-[7px] font-extrabold px-1.5 py-0.2 mt-0.5 rounded-sm uppercase tracking-wider ${
-          data.centrality_label === "Hub" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+          data.centrality_label === "HUB" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
         }`}>
           {data.centrality_label}
         </span>
@@ -175,7 +175,7 @@ function StandardContactNode({ data }: NodeProps) {
       <span className="text-[7px] text-slate-400 uppercase tracking-wider truncate w-full text-center">CONTACT</span>
       {data.centrality_label && (
         <span className={`text-[7px] font-extrabold px-1.5 py-0.2 mt-0.5 rounded-sm uppercase tracking-wider ${
-          data.centrality_label === "Hub" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+          data.centrality_label === "HUB" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
         }`}>
           {data.centrality_label}
         </span>
@@ -250,6 +250,9 @@ interface SelectedNodeState {
   towerLat?: number;
   towerLon?: number;
   connectedSuspects?: { suspectName: string; callCount: number }[];
+  betweennessCentrality?: number;
+  degreeCentrality?: number;
+  centralityLabel?: string;
 }
 
 function NetworkGraphInner({ caseId, suspects }: Props) {
@@ -404,6 +407,8 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
           tower_lon: n.tower_lon,
           centrality: n.centrality,
           centrality_label: n.centrality_label,
+          betweenness_centrality: n.betweenness_centrality,
+          degree_centrality: n.degree_centrality,
           isSearchActive,
           isSearchMatch: isSearchActive && (
             n.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -457,6 +462,9 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
           anomalyScore: node.data.anomaly_score,
           eventCount: node.data.event_count,
           suspectId: node.data.suspect_id,
+          betweennessCentrality: node.data.betweenness_centrality,
+          degreeCentrality: node.data.degree_centrality,
+          centralityLabel: node.data.centrality_label,
         });
       } else if (type === "tower") {
         const towerEdges = graphData?.edges.filter(
@@ -506,6 +514,9 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
           totalCalls,
           totalDurationSec,
           callers,
+          betweennessCentrality: node.data.betweenness_centrality,
+          degreeCentrality: node.data.degree_centrality,
+          centralityLabel: node.data.centrality_label,
         });
       }
     },
@@ -733,6 +744,32 @@ function NetworkGraphInner({ caseId, suspects }: Props) {
                 >
                   View profile →
                 </Link>
+              )}
+
+              {(selectedNode.degreeCentrality !== undefined || selectedNode.betweennessCentrality !== undefined) && (
+                <div className="border-t border-slate-100 pt-3 mt-3">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2 block">Network Centrality</span>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Degree Centrality:</span>
+                      <span className="font-mono font-bold text-slate-900">{selectedNode.degreeCentrality ?? 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Betweenness Centrality:</span>
+                      <span className="font-mono font-bold text-slate-900">{selectedNode.betweennessCentrality ?? 0}</span>
+                    </div>
+                    {selectedNode.centralityLabel && (
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-slate-500">Classification:</span>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                          selectedNode.centralityLabel === 'HUB' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {selectedNode.centralityLabel}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           )}

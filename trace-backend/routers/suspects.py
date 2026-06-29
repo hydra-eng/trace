@@ -1,9 +1,36 @@
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Case, Suspect, CDRRecord, IPDRRecord, Event, PriorIncident, CCTVDetection
+
+def correlate_cctv_with_cdr(detection, db: Session):
+    if not detection.matched_tower_id or not detection.detection_timestamp:
+        detection.correlation_status = "UNMATCHED"
+        detection.time_delta_minutes = None
+        detection.cdr_tower_timestamp = None
+        return detection
+
+    window_start = detection.detection_timestamp - timedelta(minutes=20)
+    window_end   = detection.detection_timestamp + timedelta(minutes=20)
+
+    matching_cdr = db.query(CDRRecord).filter(
+        CDRRecord.tower_id == detection.matched_tower_id,
+        CDRRecord.timestamp.between(window_start, window_end)
+    ).first()
+
+    if matching_cdr:
+        delta = abs((detection.detection_timestamp - matching_cdr.timestamp).total_seconds() / 60)
+        detection.time_delta_minutes = round(delta, 1)
+        detection.cdr_tower_timestamp = matching_cdr.timestamp
+        detection.correlation_status = "CONFIRMED" if delta <= 10 else "PROBABLE"
+    else:
+        detection.correlation_status = "UNMATCHED"
+        detection.time_delta_minutes = None
+        detection.cdr_tower_timestamp = None
+
+    return detection
 from schemas import (
     SuspectOut, SuspectProfileOut, CDRSummary, IPDRSummary,
     OTTUsageRow, MovementPoint, CallHeatmapRow, EventOut,
@@ -161,6 +188,7 @@ def get_network(case_id: str, db: Session = Depends(get_db)):
     ]
 
     centrality_val_map = {}
+    degree_c_map = {}
     centrality_label_map = {}
     try:
         import networkx as nx
@@ -172,10 +200,14 @@ def get_network(case_id: str, db: Session = Depends(get_db)):
         for e in edges:
             G.add_edge(e.source, e.target, weight=e.call_count)
         
-        scores = nx.betweenness_centrality(G)
-        for node_id, score in scores.items():
-            centrality_val_map[node_id] = round(score, 3)
-            centrality_label_map[node_id] = 'Hub' if score > 0.4 else ('Bridge' if score > 0.1 else '')
+        betweenness = nx.betweenness_centrality(G, normalized=True)
+        degree_c = nx.degree_centrality(G)
+        for node_id in G.nodes:
+            bc = round(betweenness.get(node_id, 0.0), 3)
+            dc = round(degree_c.get(node_id, 0.0), 3)
+            centrality_val_map[node_id] = bc
+            degree_c_map[node_id] = dc
+            centrality_label_map[node_id] = 'HUB' if bc > 0.4 else ('BRIDGE' if bc > 0.1 else '')
     except Exception as ex:
         print("NetworkX centrality computation failed:", ex)
 
@@ -188,6 +220,8 @@ def get_network(case_id: str, db: Session = Depends(get_db)):
             node_type="suspect", 
             suspect_id=node_id,
             centrality=centrality_val_map.get(node_id, 0.0),
+            betweenness_centrality=centrality_val_map.get(node_id, 0.0),
+            degree_centrality=degree_c_map.get(node_id, 0.0),
             centrality_label=centrality_label_map.get(node_id, "")
         ))
     for num in common_numbers:
@@ -197,6 +231,8 @@ def get_network(case_id: str, db: Session = Depends(get_db)):
             label=num[-4:], 
             node_type="contact",
             centrality=centrality_val_map.get(node_id, 0.0),
+            betweenness_centrality=centrality_val_map.get(node_id, 0.0),
+            degree_centrality=degree_c_map.get(node_id, 0.0),
             centrality_label=centrality_label_map.get(node_id, "")
         ))
 
@@ -475,6 +511,9 @@ def get_recidivism(suspect_id: str, db: Session = Depends(get_db)):
 @router.get("/suspects/{suspect_id}/cctv")
 def get_suspect_cctv(suspect_id: str, db: Session = Depends(get_db)):
     detections = db.query(CCTVDetection).filter(CCTVDetection.suspect_id == suspect_id).all()
+    for d in detections:
+        correlate_cctv_with_cdr(d, db)
+    db.commit()
     detections = sorted(detections, key=lambda d: d.detection_timestamp)
     return [
         {
@@ -488,6 +527,8 @@ def get_suspect_cctv(suspect_id: str, db: Session = Depends(get_db)):
             "confidence_score": d.confidence_score,
             "frame_image_path": d.frame_image_path,
             "matched_tower_id": d.matched_tower_id,
+            "cdr_tower_timestamp": d.cdr_tower_timestamp,
+            "time_delta_minutes": d.time_delta_minutes,
             "correlation_status": d.correlation_status,
             "notes": d.notes
         } for d in detections
@@ -498,6 +539,9 @@ def get_suspect_cctv(suspect_id: str, db: Session = Depends(get_db)):
 def get_case_cctv(case_id: str, db: Session = Depends(get_db)):
     suspect_ids = [s.id for s in db.query(Suspect).filter(Suspect.case_id == case_id).all()]
     detections = db.query(CCTVDetection).filter(CCTVDetection.suspect_id.in_(suspect_ids)).all()
+    for d in detections:
+        correlate_cctv_with_cdr(d, db)
+    db.commit()
     detections = sorted(detections, key=lambda d: d.detection_timestamp)
     return [
         {
@@ -512,6 +556,8 @@ def get_case_cctv(case_id: str, db: Session = Depends(get_db)):
             "confidence_score": d.confidence_score,
             "frame_image_path": d.frame_image_path,
             "matched_tower_id": d.matched_tower_id,
+            "cdr_tower_timestamp": d.cdr_tower_timestamp,
+            "time_delta_minutes": d.time_delta_minutes,
             "correlation_status": d.correlation_status,
             "notes": d.notes
         } for d in detections
@@ -522,6 +568,9 @@ def get_case_cctv(case_id: str, db: Session = Depends(get_db)):
 def get_cctv_timeline(case_id: str, db: Session = Depends(get_db)):
     suspect_ids = [s.id for s in db.query(Suspect).filter(Suspect.case_id == case_id).all()]
     detections = db.query(CCTVDetection).filter(CCTVDetection.suspect_id.in_(suspect_ids)).all()
+    for d in detections:
+        correlate_cctv_with_cdr(d, db)
+    db.commit()
     detections = sorted(detections, key=lambda d: d.detection_timestamp)
     return [
         {
@@ -536,6 +585,8 @@ def get_cctv_timeline(case_id: str, db: Session = Depends(get_db)):
             "confidence_score": d.confidence_score,
             "frame_image_path": d.frame_image_path,
             "matched_tower_id": d.matched_tower_id,
+            "cdr_tower_timestamp": d.cdr_tower_timestamp,
+            "time_delta_minutes": d.time_delta_minutes,
             "correlation_status": d.correlation_status,
             "notes": d.notes
         } for d in detections

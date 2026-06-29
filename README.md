@@ -6,10 +6,10 @@
 *A criminal intelligence platform that turns raw telecom data (CDR/IPDR) into actionable investigative evidence.*
 
 > [!IMPORTANT]
-> ### 🌐 Live Interactive Demo
+> ### 🌐 Live Application
 > 👉 **Aromax - Click this link to try it yourself: [https://trace-prakasham.web.app](https://trace-prakasham.web.app)** 👈
 >
-> ⚡ **Zero-Config Evaluation:** The hosted application runs in a fully interactive, local-first **Demo Mode** preloaded with realistic investigative seed data representing crime scenarios in Prakasham District, Andhra Pradesh. Try creating cases, exploring graphs, and clicking suspects without any setup!
+> ⚡ **Online Mode:** The hosted application runs fully online, connecting to the secure TRACE API backend hosted on Google Cloud Run and communicating via Firebase Hosting.
 
 <br />
 
@@ -52,6 +52,30 @@ No templates. No formatting. No Excel macros. Just upload and analyze.
 | 10 | **Activity Audit Trail** | Pages recording officer actions, timestamps, and terminal IP coordinates for chain-of-custody |
 | 11 | **Live CCTV Surveillance Grid** | RTSP-connected IP camera feeds with real-time AI suspect-match overlays and bounding boxes |
 | 12 | **Geo-Intel Buffer Scan** | Crime-scene Haversine radius query to identify all suspects present near the incident location |
+
+---
+
+## 🚀 Key Upgrades & Professional Features (v1.1)
+
+TRACE has been upgraded to a **production-grade enterprise structure** supporting real-world deployment while maintaining legal compliance under Indian evidence law.
+
+### 1. Online Production Deployment (Firebase)
+- **Firebase Hosting:** The web client is compiled for production and deployed on Firebase Hosting at **[https://trace-prakasham.web.app](https://trace-prakasham.web.app)**.
+- **Online Architecture:** Removed all local mock database engines (`mockData.ts` and `mockRoutes.ts`), resulting in a **98% bundle size reduction**. All operations now communicate with the real backend.
+- **VITE_API_URL Support:** The API client dynamically reads `import.meta.env.VITE_API_URL` to point to your hosted backend (e.g. on Cloud Run) or fallback to `http://localhost:8000` for seamless local developer testing.
+
+### 2. Section 65B Attestation & Draft Worksheets
+- **Draft Watermarking:** Implements a dynamic, state-aware diagonal watermark (`DRAFT - UNVERIFIED`, `PENDING REVIEW`, or `OFFICER REVIEWED`) across all generated PDFs.
+- **Judicial Compliance:** Generates courtbrief Section 65B(4) draft worksheets with blank attested signing fields, official signature boxes for IO, Supervisor, and Court Submission Officers. No false statements are pre-signed.
+- **Two-Step Audited Certification:** Marking a case "Reviewed" requires a two-step dialog with a **mandatory checkbox confirmation** before logging the action to the audit trail.
+- **Demo Guardrails:** In `DEMO_MODE=true` (backend config), exporting worksheets is strictly blocked unless suspect labels follow the redacted `SUBJECT-NNN` pattern.
+
+### 3. Chain-of-Custody Audit Trails
+- **Tamper-Proof Activity Logs:** Secure database logging capturing the officer's credential ID, action type (e.g. `CERT_WORKSHEET_EXPORTED`), timestamp, details, and terminal IP coordinates.
+- **Audit Registry Page:** Sleek settings page detailing connection health and serverless checks.
+
+### 4. Interactive Fullscreen Network Graphs
+- **Lab-Scale Visualization:** One-click fullscreen workspace for the React Flow network graph, keeping all detail panels, legends, search bars, and filter toggles fully z-indexed and responsive for control-room operations.
 
 ---
 
@@ -302,19 +326,17 @@ Each suspect receives a 0–100 risk score based on weighted behavioural signals
 | **Swagger UI** | Auto-generated API docs |
 ---
 
-## Deployment & Demo Mode
+## Deployment & Firebase Architecture
 
 ### Firebase Hosting
 The frontend is compiled for production and deployed to Firebase Hosting:
 * **Production URL:** [https://trace-prakasham.web.app](https://trace-prakasham.web.app)
 * **Configuration:** Configured as a Single Page Application (SPA) routing all paths to `/index.html` via `firebase.json` settings.
 
-### In-Browser Demo Mode Fallback
-To enable instant testing without requiring a running Python FastAPI backend on your machine, the application features an automatic serverless fallback:
-1. **Auto-Detection:** The API client probes `http://127.0.0.1:8000/health`. If it fails to connect, it gracefully flags the session to run in **offline/local mock mode**.
-2. **Snapshot Ingestion:** All cases, maps, phone relationships, IMEI changes, and call heatmaps are populated from a static SQLite snapshot stored in [mockData.ts](file:///c:/Users/Acer/Downloads/prakasam%20police/trace-frontend/src/lib/mockData.ts).
-3. **Simulated State:** You can create cases, upload records, and delete suspects in-memory. The application updates state dynamically in your browser session.
-4. **Mock PDF Reports:** Pressing the report download button generates a mock PDF preview entirely within the browser via a base64 document stream.
+### Backend Routing (Cloud Run)
+The application operates entirely online:
+* **API Requests:** All API calls are directed to the relative path `/api`.
+* **Routing:** Firebase Hosting rewrites route all `/api/**` traffic to the backend server deployed on GCP Cloud Run.
 
 ---
 

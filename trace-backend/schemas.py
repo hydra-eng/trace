@@ -15,6 +15,10 @@ class CaseOut(BaseModel):
     created_at: datetime
     suspect_count: int = 0
     event_count: int = 0
+    # Section 65B state machine
+    document_status: str = "DRAFT"          # DRAFT | PENDING_REVIEW | OFFICER_REVIEWED
+    reviewed_by_user_id: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -70,6 +74,8 @@ class GraphNode(BaseModel):
     suspect_id: Optional[str] = None
     centrality: Optional[float] = None
     centrality_label: Optional[str] = None
+    betweenness_centrality: Optional[float] = None
+    degree_centrality: Optional[float] = None
 
 
 class GraphEdge(BaseModel):

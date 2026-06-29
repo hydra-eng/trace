@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
-from routers import cases, upload, analysis, events, suspects, report, geo, audit
+from routers import cases, upload, analysis, events, suspects, report, geo, audit, auth
+from routers import cert_worksheet
 
 # Create all tables on startup (including new AuditLog)
 Base.metadata.create_all(bind=engine)
@@ -35,6 +36,7 @@ static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+app.include_router(auth.router)
 app.include_router(cases.router)
 app.include_router(upload.router)
 app.include_router(analysis.router)
@@ -43,6 +45,7 @@ app.include_router(suspects.router)
 app.include_router(report.router)
 app.include_router(geo.router)
 app.include_router(audit.router)
+app.include_router(cert_worksheet.router)
 
 
 @app.get("/health")
